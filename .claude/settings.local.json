@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(npm create *)",
+      "Bash(rm -rf \"/c/Users/mt2x.com/AppData/Local/Temp/claude/vite-scaffold-tmp\" && npm create vite@latest \"/c/Users/mt2x.com/AppData/Local/Temp/claude/vite-scaffold-tmp\" -- --template react-ts 2>&1)",
+      "Bash(npm install *)",
+      "Bash(npm audit *)",
+      "Bash(npm uninstall *)",
+      "Bash(npm view *)",
+      "Bash(npm ls *)",
+      "Bash(npx shadcn@latest init -d -b neutral)",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(rm -f components.json)",
+      "Bash(npx shadcn@4.12.0 init -d)",
+      "Bash(npx shadcn@latest add button card input label badge avatar dialog dropdown-menu select table tabs textarea sonner separator sheet skeleton form popover calendar checkbox switch tooltip scroll-area progress alert-dialog)",
+      "Bash(npx shadcn@latest add form)",
+      "Bash(npx shadcn@latest add field)",
+      "Bash(npm run *)",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
