@@ -3,6 +3,14 @@
 //   npx supabase gen types typescript --project-id <ref> > src/types/database.types.ts
 // and reconcile any drift with this file.
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
 export type UserRole = "super_admin" | "admin" | "department_leader" | "booth_leader"
 export type VolunteerStatus =
   | "new"
@@ -399,6 +407,14 @@ export type FormSubmissionRow = {
 export type FormSubmissionInsert = Partial<FormSubmissionRow> & Pick<FormSubmissionRow, "full_name">
 export type FormSubmissionUpdate = Partial<FormSubmissionRow>
 
+export type AppSettingRow = {
+  key: string
+  value: Json
+  updated_at: string
+}
+export type AppSettingInsert = Omit<AppSettingRow, "updated_at"> & Partial<Pick<AppSettingRow, "updated_at">>
+export type AppSettingUpdate = Partial<AppSettingInsert>
+
 type TableDef<Row, Insert, Update> = { Row: Row; Insert: Insert; Update: Update; Relationships: [] }
 
 export type Database = {
@@ -429,6 +445,7 @@ export type Database = {
       activity_logs: TableDef<ActivityLogRow, ActivityLogInsert, ActivityLogUpdate>
       leader_evaluations: TableDef<LeaderEvaluationRow, LeaderEvaluationInsert, LeaderEvaluationUpdate>
       form_submissions: TableDef<FormSubmissionRow, FormSubmissionInsert, FormSubmissionUpdate>
+      app_settings: TableDef<AppSettingRow, AppSettingInsert, AppSettingUpdate>
     }
     Views: Record<string, never>
     Functions: Record<string, never>
