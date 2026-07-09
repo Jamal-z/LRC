@@ -1,0 +1,37 @@
+# Reference systemd unit for the LRC app.
+#
+# You normally do NOT install this by hand — deploy.sh generates and installs an
+# identical unit at /etc/systemd/system/lrc.service, substituting the real paths
+# and user for your server. This file is kept in the repo for reference and for
+# fully manual setups.
+#
+# To use it manually, replace the placeholders below and then:
+#   sudo cp deploy/lrc.service /etc/systemd/system/lrc.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now lrc
+#
+# Placeholders:
+#   <RUN_USER>  -> the Linux user that owns the checkout   (e.g. deploy)
+#   <APP_DIR>   -> absolute path to the checkout            (e.g. /home/deploy/apps/LRC)
+#   <NODE_DIR>  -> directory containing node/npm            (run: dirname "$(command -v node)")
+#   <NPM_BIN>   -> absolute path to npm                     (run: command -v npm)
+
+[Unit]
+Description=LRC Volunteer Management System (Vite preview)
+After=network.target
+
+[Service]
+Type=simple
+User=<RUN_USER>
+WorkingDirectory=<APP_DIR>
+EnvironmentFile=<APP_DIR>/.env.production
+Environment=NODE_ENV=production
+Environment=PATH=<NODE_DIR>:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=<NPM_BIN> run preview
+Restart=on-failure
+RestartSec=3
+KillMode=control-group
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
