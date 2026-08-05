@@ -50,7 +50,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
-import { useDepartments } from "@/features/departments/use-departments"
+import { useAuth } from "@/features/auth/auth-context"
+import { useDepartments, useMyLedDepartmentIds } from "@/features/departments/use-departments"
 import {
   useTags,
   useTerminateVolunteer,
@@ -75,9 +76,9 @@ function initials(name: string) {
 
 const EXPORT_COLUMNS: ExportColumn<VolunteerWithRelations>[] = [
   { header: "Full Name", value: (v) => v.full_name },
-  { header: "University ID", value: (v) => v.university_id },
-  { header: "Major", value: (v) => v.major },
-  { header: "City / Residence", value: (v) => v.city },
+  { header: "University ID", value: (v) => v.volunteer_private?.university_id },
+  { header: "Major", value: (v) => v.volunteer_private?.major },
+  { header: "City / Residence", value: (v) => v.volunteer_private?.city },
   { header: "Team", value: (v) => v.departments?.name },
   {
     header: "Other Teams",
@@ -87,20 +88,39 @@ const EXPORT_COLUMNS: ExportColumn<VolunteerWithRelations>[] = [
         .map((vd) => vd.departments.name)
         .join("; "),
   },
-  { header: "WhatsApp", value: (v) => v.phone },
-  { header: "Email", value: (v) => v.email },
+  { header: "WhatsApp", value: (v) => v.volunteer_private?.phone },
+  { header: "Email", value: (v) => v.volunteer_private?.email },
   { header: "Status", value: (v) => VOLUNTEER_STATUS_LABELS[v.status] },
-  { header: "Skills", value: (v) => v.skills },
-  { header: "Languages", value: (v) => v.languages },
-  { header: "Availability", value: (v) => v.availability },
+  { header: "Skills", value: (v) => v.volunteer_private?.skills },
+  { header: "Languages", value: (v) => v.volunteer_private?.languages },
+  { header: "Availability", value: (v) => v.volunteer_private?.availability },
   { header: "Join Date", value: (v) => v.join_date },
   { header: "Tags", value: (v) => v.volunteer_tags.map((vt) => vt.tags.name).join("; ") },
 ]
 
 export function VolunteersPage() {
   const navigate = useNavigate()
-  const { data: volunteers, isLoading, isError } = useVolunteers()
-  const { data: departments = [] } = useDepartments()
+  const { profile } = useAuth()
+  // Department and booth leaders only ever get name / photo / team back from
+  // the API, so the private columns are hidden for them.
+  const isAdmin = profile?.role === "super_admin" || profile?.role === "admin"
+  const { data: allVolunteers, isLoading, isError } = useVolunteers()
+  const { data: myDepartmentIds = [] } = useMyLedDepartmentIds(profile?.id)
+  const { data: allDepartments = [] } = useDepartments()
+
+  // A department leader only manages their own team, so both the roster and the
+  // team filter are limited to the departments they lead.
+  const volunteers = useMemo(() => {
+    if (isAdmin || !allVolunteers) return allVolunteers
+    return allVolunteers.filter((volunteer) =>
+      volunteer.volunteer_departments.some((vd) => myDepartmentIds.includes(vd.department_id))
+    )
+  }, [allVolunteers, isAdmin, myDepartmentIds])
+
+  const departments = isAdmin
+    ? allDepartments
+    : allDepartments.filter((dept) => myDepartmentIds.includes(dept.id))
+
   const { data: tags = [] } = useTags()
   const terminateVolunteer = useTerminateVolunteer()
 
@@ -119,12 +139,12 @@ export function VolunteersPage() {
       if (term) {
         const haystack = [
           v.full_name,
-          v.university_id,
-          v.major,
-          v.phone,
-          v.email,
-          v.city,
-          v.skills,
+          v.volunteer_private?.university_id,
+          v.volunteer_private?.major,
+          v.volunteer_private?.phone,
+          v.volunteer_private?.email,
+          v.volunteer_private?.city,
+          v.volunteer_private?.skills,
           v.departments?.name,
         ]
           .filter(Boolean)
@@ -173,26 +193,30 @@ export function VolunteersPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link to="/import" />}>
-            <UploadCloud className="size-4" />
-            Import from Sheet
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" />}>
-              <Download className="size-4" />
-              Export
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => exportToExcel(filtered, EXPORT_COLUMNS, "volunteers")}
-              >
-                Excel (.xlsx)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportToCsv(filtered, EXPORT_COLUMNS, "volunteers")}>
-                CSV (.csv)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isAdmin && (
+            <>
+              <Button variant="outline" render={<Link to="/import" />}>
+                <UploadCloud className="size-4" />
+                Import from Sheet
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" />}>
+                  <Download className="size-4" />
+                  Export
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => exportToExcel(filtered, EXPORT_COLUMNS, "volunteers")}
+                  >
+                    Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportToCsv(filtered, EXPORT_COLUMNS, "volunteers")}>
+                    CSV (.csv)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
           <Button onClick={openAdd}>
             <Plus className="size-4" />
             Add Volunteer
@@ -287,11 +311,11 @@ export function VolunteersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>University ID</TableHead>
-                  <TableHead>Major</TableHead>
-                  <TableHead>Residence</TableHead>
+                  {isAdmin && <TableHead>University ID</TableHead>}
+                  {isAdmin && <TableHead>Major</TableHead>}
+                  {isAdmin && <TableHead>Residence</TableHead>}
                   <TableHead>Team</TableHead>
-                  <TableHead>WhatsApp</TableHead>
+                  {isAdmin && <TableHead>WhatsApp</TableHead>}
                   <TableHead>Status</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -314,9 +338,21 @@ export function VolunteersPage() {
                         <p className="font-medium text-foreground">{volunteer.full_name}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{volunteer.university_id ?? "—"}</TableCell>
-                    <TableCell className="text-sm">{volunteer.major ?? "—"}</TableCell>
-                    <TableCell className="text-sm">{volunteer.city ?? "—"}</TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-sm">
+                        {volunteer.volunteer_private?.university_id ?? "—"}
+                      </TableCell>
+                    )}
+                    {isAdmin && (
+                      <TableCell className="text-sm">
+                        {volunteer.volunteer_private?.major ?? "—"}
+                      </TableCell>
+                    )}
+                    {isAdmin && (
+                      <TableCell className="text-sm">
+                        {volunteer.volunteer_private?.city ?? "—"}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <span className="text-sm">{volunteer.departments?.name ?? "—"}</span>
                       {volunteer.volunteer_departments.filter((vd) => !vd.is_primary).length > 0 && (
@@ -325,9 +361,11 @@ export function VolunteersPage() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm" dir="ltr">
-                      {volunteer.phone ?? "—"}
-                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-sm" dir="ltr">
+                        {volunteer.volunteer_private?.phone ?? "—"}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Badge className={VOLUNTEER_STATUS_BADGE[volunteer.status as VolunteerStatus]}>
                         {VOLUNTEER_STATUS_LABELS[volunteer.status as VolunteerStatus]}
@@ -348,14 +386,18 @@ export function VolunteersPage() {
                             <Pencil className="size-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setTerminating(volunteer)}
-                          >
-                            <UserX className="size-4" />
-                            Termination
-                          </DropdownMenuItem>
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => setTerminating(volunteer)}
+                              >
+                                <UserX className="size-4" />
+                                Termination
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

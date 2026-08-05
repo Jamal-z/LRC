@@ -9,12 +9,13 @@ export function Sidebar({ role, className }: { role: UserRole; className?: strin
   return (
     <aside
       className={cn(
-        "flex h-full w-64 shrink-0 flex-col bg-[#2563eb] text-white",
+        // one flat blue in light mode, deep navy at night
+        "flex h-full w-64 shrink-0 flex-col bg-[#2563eb] text-white dark:bg-[#0b1a35] dark:border-r dark:border-white/10",
         className
       )}
     >
       <div className="flex h-16 items-center gap-3 px-5">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-white text-sm font-bold text-[#2563eb]">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-white text-sm font-bold text-[#2563eb] dark:bg-white/10 dark:text-white dark:ring-1 dark:ring-white/20">
           LRC
         </div>
         <div>
@@ -32,8 +33,8 @@ export function Sidebar({ role, className }: { role: UserRole; className?: strin
               cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2 text-[0.83rem] font-medium transition-colors duration-150",
                 isActive
-                  ? "bg-white text-[#2563eb] shadow-sm"
-                  : "text-white/85 hover:bg-white/15 hover:text-white"
+                  ? "bg-white text-[#2563eb] shadow-sm dark:bg-sky-400/15 dark:text-sky-200 dark:ring-1 dark:ring-sky-300/25"
+                  : "text-white/85 hover:bg-white/15 hover:text-white dark:text-blue-100/60 dark:hover:bg-white/[0.07]"
               )
             }
           >
@@ -42,7 +43,9 @@ export function Sidebar({ role, className }: { role: UserRole; className?: strin
                 <item.icon
                   className={cn(
                     "size-4 shrink-0 transition-colors",
-                    isActive ? "text-[#2563eb]" : "text-white/70 group-hover:text-white"
+                    isActive
+                      ? "text-[#2563eb] dark:text-sky-300"
+                      : "text-white/70 group-hover:text-white dark:text-blue-200/50 dark:group-hover:text-sky-300"
                   )}
                 />
                 {item.label}

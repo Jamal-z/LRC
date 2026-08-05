@@ -26,7 +26,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Camera } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { useDepartments } from "@/features/departments/use-departments"
+import { useAuth } from "@/features/auth/auth-context"
+import { useDepartments, useMyLedDepartmentIds } from "@/features/departments/use-departments"
 import { useSaveVolunteer, useTags, type VolunteerWithRelations } from "./use-volunteers"
 import { VOLUNTEER_STATUS_LABELS } from "@/lib/constants"
 import type { VolunteerStatus } from "@/types/database.types"
@@ -92,7 +93,15 @@ export function VolunteerFormDialog({
   onOpenChange: (open: boolean) => void
   volunteer?: VolunteerWithRelations | null
 }) {
-  const { data: departments = [] } = useDepartments()
+  const { profile } = useAuth()
+  const isAdmin = profile?.role === "super_admin" || profile?.role === "admin"
+  const { data: allDepartments = [] } = useDepartments()
+  const { data: myDepartmentIds = [] } = useMyLedDepartmentIds(profile?.id)
+  // A department leader may only add volunteers to a team they actually lead
+  // (RLS enforces the same rule server-side).
+  const departments = isAdmin
+    ? allDepartments
+    : allDepartments.filter((dept) => myDepartmentIds.includes(dept.id))
   const { data: tags = [] } = useTags()
   const saveVolunteer = useSaveVolunteer()
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -115,24 +124,24 @@ export function VolunteerFormDialog({
     if (volunteer) {
       reset({
         full_name: volunteer.full_name,
-        university_id: volunteer.university_id ?? "",
-        major: volunteer.major ?? "",
-        phone: volunteer.phone ?? "",
-        email: volunteer.email ?? "",
-        city: volunteer.city ?? "",
-        birth_date: volunteer.birth_date ?? "",
+        university_id: volunteer.volunteer_private?.university_id ?? "",
+        major: volunteer.volunteer_private?.major ?? "",
+        phone: volunteer.volunteer_private?.phone ?? "",
+        email: volunteer.volunteer_private?.email ?? "",
+        city: volunteer.volunteer_private?.city ?? "",
+        birth_date: volunteer.volunteer_private?.birth_date ?? "",
         primary_department_id: volunteer.primary_department_id ?? "",
         secondary_department_ids: volunteer.volunteer_departments
           .filter((vd) => !vd.is_primary)
           .map((vd) => vd.department_id),
-        skills: volunteer.skills ?? "",
-        languages: volunteer.languages ?? "",
-        availability: volunteer.availability ?? "",
+        skills: volunteer.volunteer_private?.skills ?? "",
+        languages: volunteer.volunteer_private?.languages ?? "",
+        availability: volunteer.volunteer_private?.availability ?? "",
         status: volunteer.status,
         join_date: volunteer.join_date,
-        internal_notes: volunteer.internal_notes ?? "",
-        emergency_contact_name: volunteer.emergency_contact_name ?? "",
-        emergency_contact_phone: volunteer.emergency_contact_phone ?? "",
+        internal_notes: volunteer.volunteer_private?.internal_notes ?? "",
+        emergency_contact_name: volunteer.volunteer_private?.emergency_contact_name ?? "",
+        emergency_contact_phone: volunteer.volunteer_private?.emergency_contact_phone ?? "",
         tag_ids: volunteer.volunteer_tags.map((vt) => vt.tag_id),
       })
     } else {
@@ -152,23 +161,28 @@ export function VolunteerFormDialog({
         volunteer: {
           ...(volunteer ? { id: volunteer.id } : {}),
           full_name: values.full_name,
-          university_id: values.university_id || null,
-          major: values.major || null,
-          phone: values.phone || null,
-          email: values.email || null,
-          city: values.city || null,
-          birth_date: values.birth_date || null,
           primary_department_id: values.primary_department_id,
-          skills: values.skills || null,
-          languages: values.languages || null,
-          availability: values.availability || null,
           status: values.status as VolunteerStatus,
           join_date: values.join_date,
-          internal_notes: values.internal_notes || null,
-          emergency_contact_name: values.emergency_contact_name || null,
-          emergency_contact_phone: values.emergency_contact_phone || null,
           photo_url: photoUrl,
         },
+        // personal details are only written by admins (RLS blocks leaders anyway)
+        privateFields: isAdmin
+          ? {
+              university_id: values.university_id || null,
+              major: values.major || null,
+              phone: values.phone || null,
+              email: values.email || null,
+              city: values.city || null,
+              birth_date: values.birth_date || null,
+              skills: values.skills || null,
+              languages: values.languages || null,
+              availability: values.availability || null,
+              internal_notes: values.internal_notes || null,
+              emergency_contact_name: values.emergency_contact_name || null,
+              emergency_contact_phone: values.emergency_contact_phone || null,
+            }
+          : undefined,
         secondaryDepartmentIds: values.secondary_department_ids,
         tagIds: values.tag_ids,
       })
@@ -239,36 +253,40 @@ export function VolunteerFormDialog({
               <FieldError errors={[errors.full_name]} />
             </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-university-id">University ID</FieldLabel>
-              <Input id="v-university-id" {...register("university_id")} />
-            </Field>
+            {isAdmin && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="v-university-id">University ID</FieldLabel>
+                  <Input id="v-university-id" {...register("university_id")} />
+                </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-major">Major</FieldLabel>
-              <Input id="v-major" {...register("major")} />
-            </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-major">Major</FieldLabel>
+                  <Input id="v-major" {...register("major")} />
+                </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-phone">WhatsApp number</FieldLabel>
-              <Input id="v-phone" dir="ltr" {...register("phone")} />
-            </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-phone">WhatsApp number</FieldLabel>
+                  <Input id="v-phone" dir="ltr" {...register("phone")} />
+                </Field>
 
-            <Field data-invalid={!!errors.email}>
-              <FieldLabel htmlFor="v-email">Email</FieldLabel>
-              <Input id="v-email" type="email" {...register("email")} />
-              <FieldError errors={[errors.email]} />
-            </Field>
+                <Field data-invalid={!!errors.email}>
+                  <FieldLabel htmlFor="v-email">Email</FieldLabel>
+                  <Input id="v-email" type="email" {...register("email")} />
+                  <FieldError errors={[errors.email]} />
+                </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-city">City</FieldLabel>
-              <Input id="v-city" {...register("city")} />
-            </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-city">City</FieldLabel>
+                  <Input id="v-city" {...register("city")} />
+                </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-birth-date">Birth date</FieldLabel>
-              <Input id="v-birth-date" type="date" {...register("birth_date")} />
-            </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-birth-date">Birth date</FieldLabel>
+                  <Input id="v-birth-date" type="date" {...register("birth_date")} />
+                </Field>
+              </>
+            )}
 
             <Field data-invalid={!!errors.primary_department_id}>
               <FieldLabel>Primary department *</FieldLabel>
@@ -321,20 +339,24 @@ export function VolunteerFormDialog({
               <FieldError errors={[errors.join_date]} />
             </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-availability">Availability</FieldLabel>
-              <Input id="v-availability" placeholder="e.g. Weekends, evenings" {...register("availability")} />
-            </Field>
+            {isAdmin && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="v-availability">Availability</FieldLabel>
+                  <Input id="v-availability" placeholder="e.g. Weekends, evenings" {...register("availability")} />
+                </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-skills">Skills</FieldLabel>
-              <Input id="v-skills" placeholder="e.g. Design, teaching" {...register("skills")} />
-            </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-skills">Skills</FieldLabel>
+                  <Input id="v-skills" placeholder="e.g. Design, teaching" {...register("skills")} />
+                </Field>
 
-            <Field>
-              <FieldLabel htmlFor="v-languages">Languages</FieldLabel>
-              <Input id="v-languages" placeholder="e.g. Arabic, English" {...register("languages")} />
-            </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-languages">Languages</FieldLabel>
+                  <Input id="v-languages" placeholder="e.g. Arabic, English" {...register("languages")} />
+                </Field>
+              </>
+            )}
           </div>
 
           <Field>
@@ -400,21 +422,25 @@ export function VolunteerFormDialog({
             />
           </Field>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="v-ec-name">Emergency contact name</FieldLabel>
-              <Input id="v-ec-name" {...register("emergency_contact_name")} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="v-ec-phone">Emergency contact phone</FieldLabel>
-              <Input id="v-ec-phone" {...register("emergency_contact_phone")} />
-            </Field>
-          </div>
+          {isAdmin && (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="v-ec-name">Emergency contact name</FieldLabel>
+                  <Input id="v-ec-name" {...register("emergency_contact_name")} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="v-ec-phone">Emergency contact phone</FieldLabel>
+                  <Input id="v-ec-phone" {...register("emergency_contact_phone")} />
+                </Field>
+              </div>
 
-          <Field>
-            <FieldLabel htmlFor="v-notes">Internal notes</FieldLabel>
-            <Textarea id="v-notes" rows={3} {...register("internal_notes")} />
-          </Field>
+              <Field>
+                <FieldLabel htmlFor="v-notes">Internal notes</FieldLabel>
+                <Textarea id="v-notes" rows={3} {...register("internal_notes")} />
+              </Field>
+            </>
+          )}
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

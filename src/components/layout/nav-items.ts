@@ -33,7 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Events", path: "/events", icon: CalendarDays, roles: ALL_STAFF },
   { label: "Tasks", path: "/tasks", icon: KanbanSquare, roles: MANAGERS },
   { label: "Evaluations", path: "/evaluations", icon: ClipboardCheck, roles: ALL_STAFF },
-  { label: "Reports", path: "/reports", icon: BarChart3, roles: MANAGERS },
+  { label: "Reports", path: "/reports", icon: BarChart3, roles: ADMINS_ONLY },
   { label: "Forms", path: "/forms", icon: FileText, roles: ADMINS_ONLY },
   { label: "Terminations", path: "/terminations", icon: UserX, roles: ADMINS_ONLY },
   { label: "Users & Roles", path: "/users", icon: ShieldCheck, roles: ADMINS_ONLY },

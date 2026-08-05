@@ -1,5 +1,6 @@
 import { Menu, Search } from "lucide-react"
 import { NotificationsBell } from "@/features/notifications/notifications-bell"
+import { ThemeToggle } from "./theme-toggle"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/features/auth/auth-context"
 import { Input } from "@/components/ui/input"
@@ -38,6 +39,7 @@ export function Topbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-1">
+        <ThemeToggle />
         <NotificationsBell />
 
         <button

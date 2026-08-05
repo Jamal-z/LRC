@@ -1,11 +1,11 @@
 import { useState } from "react"
-import { Star } from "lucide-react"
+import { Link } from "react-router-dom"
+import { ClipboardCheck, Sparkles, Star, LifeBuoy, UserRoundCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,6 @@ import { useAuth } from "@/features/auth/auth-context"
 import {
   useEventLeaders,
   useLeaderEvaluations,
-  useSaveEventEvaluation,
   useSaveLeaderEvaluation,
   type EventEvalWithDetails,
   type ParticipantWithDetails,
@@ -39,7 +38,7 @@ function StarRating({
         <button key={star} type="button" onClick={() => onChange(star)} aria-label={`${star} stars`}>
           <Star
             className={cn(
-              "size-5 transition-colors",
+              "size-6 transition-colors",
               value != null && star <= value
                 ? "fill-amber-400 text-amber-400"
                 : "text-muted-foreground/40 hover:text-amber-300"
@@ -51,22 +50,21 @@ function StarRating({
   )
 }
 
-function ReadRating({ label, value }: { label: string; value: number | null }) {
-  return (
-    <span className="text-sm">
-      {label}:{" "}
-      {value != null ? (
-        <span className="inline-flex items-center gap-0.5 font-medium">
-          <Star className="size-3 fill-amber-400 text-amber-400" />
-          {value}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      )}
-    </span>
-  )
+function volunteerAverage(evaluation: EventEvalWithDetails) {
+  const values = [
+    evaluation.meeting_attendance_rating,
+    evaluation.performance_rating,
+    evaluation.teamwork_rating,
+    evaluation.communication_rating,
+  ].filter((v): v is number => v != null)
+  return values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : null
 }
 
+/**
+ * Read-only overview of an event's evaluations, plus the committee's own
+ * evaluation of the leaders. Scoring volunteers happens on the dedicated
+ * Evaluations pages so it gets a full screen.
+ */
 export function EvaluationsTab({
   eventId,
   participants,
@@ -77,16 +75,18 @@ export function EvaluationsTab({
   evaluations: EventEvalWithDetails[]
 }) {
   const { profile } = useAuth()
-  const saveEvaluation = useSaveEventEvaluation()
   const isAdmin = profile?.role === "super_admin" || profile?.role === "admin"
 
-  // leaders section (admin committee evaluates the leaders themselves)
   const { data: eventLeaders = [] } = useEventLeaders(isAdmin ? eventId : undefined)
   const { data: leaderEvaluations = [] } = useLeaderEvaluations(isAdmin ? eventId : undefined)
   const saveLeaderEvaluation = useSaveLeaderEvaluation()
 
   const [leaderDialogOpen, setLeaderDialogOpen] = useState(false)
-  const [leaderTarget, setLeaderTarget] = useState<{ user_id: string; full_name: string; role_label: string } | null>(null)
+  const [leaderTarget, setLeaderTarget] = useState<{
+    user_id: string
+    full_name: string
+    role_label: string
+  } | null>(null)
   const [leaderExistingId, setLeaderExistingId] = useState<string | undefined>()
   const [leadership, setLeadership] = useState<number | null>(null)
   const [organization, setOrganization] = useState<number | null>(null)
@@ -131,134 +131,34 @@ export function EvaluationsTab({
     }
   }
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [target, setTarget] = useState<ParticipantWithDetails | null>(null)
-  const [existingId, setExistingId] = useState<string | undefined>()
-  const [performance, setPerformance] = useState<number | null>(null)
-  const [commitment, setCommitment] = useState<number | null>(null)
-  const [teamwork, setTeamwork] = useState<number | null>(null)
-  const [communication, setCommunication] = useState<number | null>(null)
-  const [notes, setNotes] = useState("")
-  const [recommend, setRecommend] = useState(false)
-  const [futureLeader, setFutureLeader] = useState(false)
-
-  function openEvaluate(participant: ParticipantWithDetails) {
-    const existing = evaluations.find(
-      (ev) => ev.volunteer_id === participant.volunteer_id && ev.evaluated_by === profile?.id
-    )
-    setTarget(participant)
-    setExistingId(existing?.id)
-    setPerformance(existing?.performance_rating ?? null)
-    setCommitment(existing?.commitment_rating ?? null)
-    setTeamwork(existing?.teamwork_rating ?? null)
-    setCommunication(existing?.communication_rating ?? null)
-    setNotes(existing?.notes ?? "")
-    setRecommend(existing?.recommend_for_future_events ?? false)
-    setFutureLeader(existing?.potential_future_booth_leader ?? false)
-    setDialogOpen(true)
-  }
-
-  async function handleSave() {
-    if (!target || !profile) return
-    try {
-      await saveEvaluation.mutateAsync({
-        evaluation: {
-          id: existingId,
-          volunteer_id: target.volunteer_id,
-          booth_id: target.booth_id,
-          evaluated_by: profile.id,
-          performance_rating: performance,
-          commitment_rating: commitment,
-          teamwork_rating: teamwork,
-          communication_rating: communication,
-          notes: notes || null,
-          recommend_for_future_events: recommend,
-          potential_future_booth_leader: futureLeader,
-        },
-        eventId,
-      })
-      toast.success("Evaluation saved")
-      setDialogOpen(false)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to save evaluation")
-    }
-  }
-
-  const avgOf = (values: (number | null)[]) => {
-    const nums = values.filter((v): v is number => v != null)
-    return nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : "—"
-  }
+  const totalShifts = evaluations.reduce((sum, ev) => sum + (ev.shifts_count ?? 0), 0)
 
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardContent>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-foreground">Evaluate participants</h3>
-            <p className="text-xs text-muted-foreground">
-              Average performance: {avgOf(evaluations.map((e) => e.performance_rating))} / 5
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Volunteer evaluations</p>
+            <p className="text-sm text-muted-foreground">
+              {evaluations.length} of {participants.length} evaluated · {totalShifts} shifts recorded
             </p>
           </div>
-          {participants.length === 0 ? (
-            <EmptyState
-              title="No participants to evaluate"
-              description="Add participants first from the Participants tab."
-            />
-          ) : (
-            <div className="flex flex-col divide-y divide-border">
-              {participants.map((participant) => {
-                const myEval = evaluations.find(
-                  (ev) =>
-                    ev.volunteer_id === participant.volunteer_id && ev.evaluated_by === profile?.id
-                )
-                return (
-                  <div
-                    key={participant.id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2.5"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {participant.volunteers?.full_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {participant.event_booths?.name ?? "No booth"}
-                        {participant.departments ? ` · ${participant.departments.name}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {myEval && (
-                        <Badge variant="secondary" className="gap-1">
-                          <Star className="size-3 fill-amber-400 text-amber-400" />
-                          {myEval.performance_rating ?? "—"}
-                        </Badge>
-                      )}
-                      <Button
-                        size="sm"
-                        variant={myEval ? "outline" : "default"}
-                        onClick={() => openEvaluate(participant)}
-                      >
-                        {myEval ? "Edit evaluation" : "Evaluate"}
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <Button render={<Link to={`/evaluations/${eventId}`} />}>
+            <ClipboardCheck className="size-4" />
+            Open evaluation page
+          </Button>
         </CardContent>
       </Card>
 
       {isAdmin && (
         <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">Evaluate leaders (committee)</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Department leaders of participating teams + booth leaders of this event
+            </p>
+          </CardHeader>
           <CardContent>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-foreground">
-                Evaluate leaders (admin committee)
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Department leaders of participating teams + booth leaders of this event
-              </p>
-            </div>
             {eventLeaders.length === 0 ? (
               <EmptyState
                 title="No leaders linked to this event yet"
@@ -304,14 +204,14 @@ export function EvaluationsTab({
       )}
 
       <Card>
+        <CardHeader>
+          <CardTitle className="text-base">All volunteer evaluations ({evaluations.length})</CardTitle>
+        </CardHeader>
         <CardContent>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">
-            All evaluations ({evaluations.length})
-          </h3>
           {evaluations.length === 0 ? (
             <EmptyState
               title="No evaluations yet"
-              description="Evaluations submitted by booth/department leaders and admins appear here."
+              description="Evaluations submitted by booth and team leaders appear here."
               icon={Star}
             />
           ) : (
@@ -322,29 +222,51 @@ export function EvaluationsTab({
                     <p className="text-sm font-medium text-foreground">
                       {evaluation.volunteers?.full_name}
                       {evaluation.event_booths && (
-                        <span className="text-muted-foreground"> · {evaluation.event_booths.name}</span>
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {evaluation.event_booths.name}
+                        </span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      by {evaluation.profiles?.full_name ?? "—"}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {evaluation.shifts_count ?? 0} shifts
+                      </Badge>
+                      {volunteerAverage(evaluation) && (
+                        <Badge variant="secondary" className="gap-1">
+                          <Star className="size-3 fill-amber-400 text-amber-400" />
+                          {volunteerAverage(evaluation)}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        by {evaluation.profiles?.full_name ?? "—"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                    <ReadRating label="Performance" value={evaluation.performance_rating} />
-                    <ReadRating label="Commitment" value={evaluation.commitment_rating} />
-                    <ReadRating label="Teamwork" value={evaluation.teamwork_rating} />
-                    <ReadRating label="Communication" value={evaluation.communication_rating} />
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {evaluation.recommend_for_future_events && (
-                      <Badge variant="secondary" className="text-xs">Recommend for future events</Badge>
-                    )}
+
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {evaluation.potential_future_booth_leader && (
-                      <Badge variant="secondary" className="text-xs">Potential booth leader</Badge>
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <UserRoundCheck className="size-3" />
+                        Potential booth leader
+                      </Badge>
+                    )}
+                    {evaluation.is_talented && (
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <Sparkles className="size-3" />
+                        Talented
+                      </Badge>
+                    )}
+                    {evaluation.needs_follow_up && (
+                      <Badge className="gap-1 bg-amber-100 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                        <LifeBuoy className="size-3" />
+                        Needs follow-up
+                      </Badge>
                     )}
                   </div>
+
                   {evaluation.notes && (
-                    <p className="mt-1 text-sm text-muted-foreground">{evaluation.notes}</p>
+                    <p className="mt-1.5 text-sm text-muted-foreground">{evaluation.notes}</p>
                   )}
                 </li>
               ))}
@@ -353,62 +275,7 @@ export function EvaluationsTab({
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Evaluate {target?.volunteers?.full_name}</DialogTitle>
-            <DialogDescription>
-              {target?.event_booths?.name ?? "No booth"} · rate from 1 to 5 stars.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3">
-              <Field>
-                <FieldLabel>Performance</FieldLabel>
-                <StarRating value={performance} onChange={setPerformance} />
-              </Field>
-              <Field>
-                <FieldLabel>Commitment</FieldLabel>
-                <StarRating value={commitment} onChange={setCommitment} />
-              </Field>
-              <Field>
-                <FieldLabel>Teamwork</FieldLabel>
-                <StarRating value={teamwork} onChange={setTeamwork} />
-              </Field>
-              <Field>
-                <FieldLabel>Communication</FieldLabel>
-                <StarRating value={communication} onChange={setCommunication} />
-              </Field>
-            </div>
-
-            <Field>
-              <FieldLabel htmlFor="ev-notes">Notes</FieldLabel>
-              <Textarea id="ev-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </Field>
-
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={recommend} onCheckedChange={(c) => setRecommend(!!c)} />
-              Would recommend for future events
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={futureLeader} onCheckedChange={(c) => setFutureLeader(!!c)} />
-              Potential future booth leader
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saveEvaluation.isPending}>
-              {saveEvaluation.isPending ? "Saving…" : "Save evaluation"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Leader evaluation dialog (admin committee) */}
+      {/* Leader evaluation dialog (committee) */}
       <Dialog open={leaderDialogOpen} onOpenChange={setLeaderDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

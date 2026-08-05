@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { Pencil, Plus, Store, Trash2, UserCog } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -178,7 +179,12 @@ export function BoothsTab({
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-foreground">{booth.name}</h3>
+                  <Link
+                    to={`/events/${eventId}/booths/${booth.id}`}
+                    className="font-semibold text-foreground hover:underline"
+                  >
+                    {booth.name}
+                  </Link>
                   {booth.description && (
                     <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
                       {booth.description}
@@ -208,8 +214,17 @@ export function BoothsTab({
                       </Badge>
                     )}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1"
+                    render={<Link to={`/events/${eventId}/booths/${booth.id}`} />}
+                  >
+                    <Store className="size-3.5" />
+                    Open booth
+                  </Button>
                   {isAdmin && (
-                    <Button variant="outline" size="sm" className="mt-1" onClick={() => openLeaders(booth)}>
+                    <Button variant="outline" size="sm" onClick={() => openLeaders(booth)}>
                       <UserCog className="size-3.5" />
                       Manage leaders
                     </Button>

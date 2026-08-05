@@ -346,20 +346,25 @@ export function ImportPage() {
 
     const [emailRes, phoneRes, uniRes, namesRes] = await Promise.all([
       emails.length
-        ? supabase.from("volunteers").select("id, email").in("email", emails)
-        : Promise.resolve({ data: [] as { id: string; email: string | null }[] }),
+        ? supabase.from("volunteer_private").select("volunteer_id, email").in("email", emails)
+        : Promise.resolve({ data: [] as { volunteer_id: string; email: string | null }[] }),
       phones.length
-        ? supabase.from("volunteers").select("id, phone").in("phone", phones)
-        : Promise.resolve({ data: [] as { id: string; phone: string | null }[] }),
+        ? supabase.from("volunteer_private").select("volunteer_id, phone").in("phone", phones)
+        : Promise.resolve({ data: [] as { volunteer_id: string; phone: string | null }[] }),
       universityIds.length
-        ? supabase.from("volunteers").select("id, university_id").in("university_id", universityIds)
-        : Promise.resolve({ data: [] as { id: string; university_id: string | null }[] }),
+        ? supabase
+            .from("volunteer_private")
+            .select("volunteer_id, university_id")
+            .in("university_id", universityIds)
+        : Promise.resolve({ data: [] as { volunteer_id: string; university_id: string | null }[] }),
       supabase.from("volunteers").select("id, full_name"),
     ])
 
-    const byEmail = new Map((emailRes.data ?? []).map((v) => [v.email, v.id]))
-    const byPhone = new Map((phoneRes.data ?? []).map((v) => [v.phone, v.id]))
-    const byUniversityId = new Map((uniRes.data ?? []).map((v) => [v.university_id, v.id]))
+    const byEmail = new Map((emailRes.data ?? []).map((v) => [v.email, v.volunteer_id]))
+    const byPhone = new Map((phoneRes.data ?? []).map((v) => [v.phone, v.volunteer_id]))
+    const byUniversityId = new Map(
+      (uniRes.data ?? []).map((v) => [v.university_id, v.volunteer_id])
+    )
     // normalized full name -> id (tolerates Arabic spelling variants and extra spaces)
     const byName = new Map((namesRes.data ?? []).map((v) => [normalizeName(v.full_name), v.id]))
 
@@ -430,42 +435,55 @@ export function ImportPage() {
         defaultDepartmentId ||
         null
 
-      const payload = {
+      // shared columns vs. admin-only personal details (separate tables)
+      const sharedPayload = {
         full_name: row.full_name,
+        primary_department_id: departmentId,
+        status: row.status,
+        photo_url: null,
+      }
+      const privatePayload = {
         phone: row.phone,
         email: row.email,
         city: row.city,
         university_id: row.university_id,
         major: row.major,
-        primary_department_id: departmentId,
         skills: row.skills,
         languages: row.languages,
         availability: row.availability,
-        status: row.status,
         internal_notes: row.internal_notes,
-        birth_date: null,
-        photo_url: null,
-        emergency_contact_name: null,
-        emergency_contact_phone: null,
       }
 
       try {
+        let volunteerId: string
+
         if (row.duplicate) {
           if (duplicateAction === "skip") {
             counts.skipped++
             continue
           }
+          volunteerId = row.duplicate.existingId
           const { error } = await supabase
             .from("volunteers")
-            .update(payload)
-            .eq("id", row.duplicate.existingId)
+            .update(sharedPayload)
+            .eq("id", volunteerId)
           if (error) throw error
           counts.updated++
         } else {
-          const { error } = await supabase.from("volunteers").insert(payload)
+          const { data, error } = await supabase
+            .from("volunteers")
+            .insert(sharedPayload)
+            .select("id")
+            .single()
           if (error) throw error
+          volunteerId = data.id
           counts.imported++
         }
+
+        const { error: privateError } = await supabase
+          .from("volunteer_private")
+          .upsert({ volunteer_id: volunteerId, ...privatePayload }, { onConflict: "volunteer_id" })
+        if (privateError) throw privateError
       } catch {
         counts.failed++
       }

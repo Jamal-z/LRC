@@ -18,7 +18,9 @@
       "Bash(npx shadcn@latest add field)",
       "Bash(npm run *)",
       "mcp__claude-in-chrome__list_connected_browsers",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(sed -i '/import { BoothEvaluations } from \".\\\\/booth-evaluations\"/d' src/features/events/booth-detail-page.tsx)",
+      "Bash(rm -f src/features/events/booth-evaluations.tsx)"
     ]
   }
 }

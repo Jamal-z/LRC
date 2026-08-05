@@ -4,6 +4,7 @@ import type {
   DepartmentRow,
   TagRow,
   VolunteerInsert,
+  VolunteerPrivateRow,
   VolunteerRow,
   VolunteerUpdate,
 } from "@/types/database.types"
@@ -12,14 +13,24 @@ export interface VolunteerWithRelations extends VolunteerRow {
   departments: Pick<DepartmentRow, "id" | "name"> | null
   volunteer_departments: { department_id: string; is_primary: boolean; departments: { id: string; name: string } }[]
   volunteer_tags: { tag_id: string; tags: Pick<TagRow, "id" | "name" | "color"> }[]
+  // Personal details live in a separate admin-only table: for department and
+  // booth leaders RLS returns null here, so the UI simply has nothing to show.
+  volunteer_private: VolunteerPrivateRow | null
 }
 
 const VOLUNTEER_SELECT = `
   *,
   departments:primary_department_id (id, name),
   volunteer_departments (department_id, is_primary, departments (id, name)),
-  volunteer_tags (tag_id, tags (id, name, color))
+  volunteer_tags (tag_id, tags (id, name, color)),
+  volunteer_private (*)
 `
+
+/** Convenience accessors so pages don't repeat the null checks everywhere. */
+export const privateField = (
+  volunteer: VolunteerWithRelations,
+  key: keyof Omit<VolunteerPrivateRow, "volunteer_id" | "created_at" | "updated_at">
+) => volunteer.volunteer_private?.[key] ?? null
 
 // active roster — terminated volunteers live in useTerminatedVolunteers
 export function useVolunteers() {
@@ -30,7 +41,7 @@ export function useVolunteers() {
         .from("volunteers")
         .select(VOLUNTEER_SELECT)
         .neq("status", "archived")
-        .order("created_at", { ascending: false })
+        .order("full_name", { ascending: true })
       if (error) throw error
       return data as unknown as VolunteerWithRelations[]
     },
@@ -80,8 +91,14 @@ export function useTags() {
   })
 }
 
+export type VolunteerPrivateInput = Partial<
+  Omit<VolunteerPrivateRow, "volunteer_id" | "created_at" | "updated_at">
+>
+
 export interface SaveVolunteerInput {
   volunteer: VolunteerInsert | (VolunteerUpdate & { id: string })
+  /** Admin-only personal details; omit entirely when a leader saves. */
+  privateFields?: VolunteerPrivateInput
   secondaryDepartmentIds?: string[]
   tagIds?: string[]
 }
@@ -90,7 +107,12 @@ export function useSaveVolunteer() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ volunteer, secondaryDepartmentIds, tagIds }: SaveVolunteerInput) => {
+    mutationFn: async ({
+      volunteer,
+      privateFields,
+      secondaryDepartmentIds,
+      tagIds,
+    }: SaveVolunteerInput) => {
       let volunteerId: string
 
       if ("id" in volunteer && volunteer.id) {
@@ -106,6 +128,13 @@ export function useSaveVolunteer() {
           .single()
         if (error) throw error
         volunteerId = data.id
+      }
+
+      if (privateFields) {
+        const { error } = await supabase
+          .from("volunteer_private")
+          .upsert({ volunteer_id: volunteerId, ...privateFields }, { onConflict: "volunteer_id" })
+        if (error) throw error
       }
 
       if (secondaryDepartmentIds) {

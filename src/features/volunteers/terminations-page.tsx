@@ -48,7 +48,7 @@ export function TerminationsPage() {
   const deleteVolunteer = useDeleteVolunteer()
   const [deleting, setDeleting] = useState<VolunteerWithRelations | null>(null)
 
-  const isSuperAdmin = profile?.role === "super_admin"
+  const isAdmin = profile?.role === "super_admin" || profile?.role === "admin"
 
   async function handleRestore(volunteer: VolunteerWithRelations) {
     try {
@@ -119,17 +119,17 @@ export function TerminationsPage() {
                         </Avatar>
                         <div>
                           <p className="font-medium text-foreground">{volunteer.full_name}</p>
-                          {volunteer.email && (
-                            <p className="text-xs text-muted-foreground">{volunteer.email}</p>
+                          {volunteer.volunteer_private?.email && (
+                            <p className="text-xs text-muted-foreground">{volunteer.volunteer_private?.email}</p>
                           )}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{volunteer.university_id ?? "—"}</TableCell>
-                    <TableCell className="text-sm">{volunteer.major ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{volunteer.volunteer_private?.university_id ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{volunteer.volunteer_private?.major ?? "—"}</TableCell>
                     <TableCell className="text-sm">{volunteer.departments?.name ?? "—"}</TableCell>
                     <TableCell className="text-sm" dir="ltr">
-                      {volunteer.phone ?? "—"}
+                      {volunteer.volunteer_private?.phone ?? "—"}
                     </TableCell>
                     <TableCell className="text-sm">
                       {volunteer.archived_at
@@ -142,7 +142,7 @@ export function TerminationsPage() {
                           <RotateCcw className="size-3.5" />
                           Restore
                         </Button>
-                        {isSuperAdmin && (
+                        {isAdmin && (
                           <Button
                             size="sm"
                             variant="destructive"

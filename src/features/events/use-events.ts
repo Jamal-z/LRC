@@ -55,8 +55,11 @@ export interface ParticipantWithDetails {
 export interface EventEvalWithDetails {
   id: string
   booth_id: string | null
+  department_id: string | null
   volunteer_id: string
   evaluated_by: string
+  meeting_attendance_rating: number | null
+  shifts_count: number
   performance_rating: number | null
   commitment_rating: number | null
   teamwork_rating: number | null
@@ -64,6 +67,8 @@ export interface EventEvalWithDetails {
   notes: string | null
   recommend_for_future_events: boolean | null
   potential_future_booth_leader: boolean | null
+  is_talented: boolean
+  needs_follow_up: boolean
   created_at: string
   volunteers: { id: string; full_name: string } | null
   profiles: { id: string; full_name: string } | null

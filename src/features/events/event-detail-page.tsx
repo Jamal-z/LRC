@@ -40,6 +40,7 @@ import { EventFormDialog } from "./event-form-dialog"
 import { BoothsTab } from "./booths-tab"
 import { ParticipantsTab } from "./participants-tab"
 import { EvaluationsTab } from "./evaluations-tab"
+import { PhotoGallery } from "./photo-gallery"
 import { EVENT_STATUS_LABELS, TASK_STATUS_LABELS } from "@/lib/constants"
 import { exportToExcel, type ExportColumn } from "@/lib/export"
 import type { TaskStatus } from "@/types/database.types"
@@ -213,6 +214,7 @@ export function EventDetailPage() {
           <TabsTrigger value="booths">Booths ({booths.length})</TabsTrigger>
           <TabsTrigger value="participants">Participants ({participants.length})</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations ({evaluations.length})</TabsTrigger>
+          <TabsTrigger value="photos">Photos</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
           <TabsTrigger value="finance">Finance</TabsTrigger>
           <TabsTrigger value="report">Post-event report</TabsTrigger>
@@ -234,6 +236,10 @@ export function EventDetailPage() {
 
         <TabsContent value="evaluations">
           <EvaluationsTab eventId={event.id} participants={participants} evaluations={evaluations} />
+        </TabsContent>
+
+        <TabsContent value="photos">
+          <PhotoGallery eventId={event.id} title={`${event.name} — photo archive`} />
         </TabsContent>
 
         <TabsContent value="tasks">

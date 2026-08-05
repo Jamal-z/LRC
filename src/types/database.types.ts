@@ -69,35 +69,42 @@ export type DepartmentLeaderInsert = Omit<DepartmentLeaderRow, "id" | "created_a
   Partial<Pick<DepartmentLeaderRow, "id" | "created_at">>
 export type DepartmentLeaderUpdate = Partial<DepartmentLeaderInsert>
 
+// Shared, non-sensitive volunteer record: every staff member may read these.
 export type VolunteerRow = {
   id: string
   full_name: string
   photo_url: string | null
+  primary_department_id: string | null
+  status: VolunteerStatus
+  join_date: string
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+}
+export type VolunteerInsert = Partial<VolunteerRow> & Pick<VolunteerRow, "full_name">
+export type VolunteerUpdate = Partial<VolunteerRow>
+
+// Personal details — admins only (enforced by RLS, not just the UI).
+export type VolunteerPrivateRow = {
+  volunteer_id: string
   phone: string | null
   email: string | null
   city: string | null
   birth_date: string | null
-  primary_department_id: string | null
-  availability: string | null
-  status: VolunteerStatus
-  skills: string | null
-  languages: string | null
   university_id: string | null
   major: string | null
-  join_date: string
+  skills: string | null
+  languages: string | null
+  availability: string | null
   internal_notes: string | null
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
   created_at: string
   updated_at: string
-  archived_at: string | null
 }
-export type VolunteerInsert = Omit<
-  VolunteerRow,
-  "id" | "status" | "join_date" | "created_at" | "updated_at" | "archived_at"
-> &
-  Partial<Pick<VolunteerRow, "id" | "status" | "join_date" | "created_at" | "updated_at" | "archived_at">>
-export type VolunteerUpdate = Partial<VolunteerInsert>
+export type VolunteerPrivateInsert = Partial<VolunteerPrivateRow> &
+  Pick<VolunteerPrivateRow, "volunteer_id">
+export type VolunteerPrivateUpdate = Partial<VolunteerPrivateRow>
 
 export type VolunteerDepartmentRow = {
   id: string
@@ -239,16 +246,21 @@ export type EventEvaluationRow = {
   id: string
   event_id: string
   booth_id: string | null
+  department_id: string | null
   volunteer_id: string
   evaluated_by: string
+  meeting_attendance_rating: number | null
+  shifts_count: number
   performance_rating: number | null
-  commitment_rating: number | null
   teamwork_rating: number | null
   communication_rating: number | null
+  commitment_rating: number | null
   notes: string | null
   suggested_tags: string[]
   recommend_for_future_events: boolean | null
   potential_future_booth_leader: boolean | null
+  is_talented: boolean
+  needs_follow_up: boolean
   created_at: string
   updated_at: string
 }
@@ -407,6 +419,79 @@ export type FormSubmissionRow = {
 export type FormSubmissionInsert = Partial<FormSubmissionRow> & Pick<FormSubmissionRow, "full_name">
 export type FormSubmissionUpdate = Partial<FormSubmissionRow>
 
+export type EventPhotoRow = {
+  id: string
+  event_id: string
+  booth_id: string | null
+  url: string
+  path: string
+  caption: string | null
+  uploaded_by: string | null
+  created_at: string
+}
+export type EventPhotoInsert = Partial<EventPhotoRow> &
+  Pick<EventPhotoRow, "event_id" | "url" | "path">
+export type EventPhotoUpdate = Partial<EventPhotoRow>
+
+export type FormDestination = "volunteers" | "event_participants" | "none"
+
+export type FormRow = {
+  id: string
+  title: string
+  description: string | null
+  slug: string
+  accent_color: string
+  cover_image_url: string | null
+  is_active: boolean
+  destination: FormDestination
+  destination_event_id: string | null
+  destination_department_id: string | null
+  success_message: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+export type FormInsert = Partial<FormRow> & Pick<FormRow, "title" | "slug">
+export type FormUpdate = Partial<FormRow>
+
+export type FormFieldType =
+  | "text"
+  | "textarea"
+  | "email"
+  | "phone"
+  | "number"
+  | "date"
+  | "select"
+  | "radio"
+  | "checkbox"
+
+export type FormFieldRow = {
+  id: string
+  form_id: string
+  label: string
+  help_text: string | null
+  field_type: FormFieldType
+  options: string[]
+  is_required: boolean
+  position: number
+  maps_to: string | null
+  created_at: string
+}
+export type FormFieldInsert = Partial<FormFieldRow> & Pick<FormFieldRow, "form_id" | "label">
+export type FormFieldUpdate = Partial<FormFieldRow>
+
+export type FormResponseRow = {
+  id: string
+  form_id: string
+  answers: Record<string, string | string[] | null>
+  status: "pending" | "approved" | "rejected"
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+export type FormResponseInsert = Partial<FormResponseRow> & Pick<FormResponseRow, "form_id">
+export type FormResponseUpdate = Partial<FormResponseRow>
+
 export type AppSettingRow = {
   key: string
   value: Json
@@ -424,6 +509,7 @@ export type Database = {
       departments: TableDef<DepartmentRow, DepartmentInsert, DepartmentUpdate>
       department_leaders: TableDef<DepartmentLeaderRow, DepartmentLeaderInsert, DepartmentLeaderUpdate>
       volunteers: TableDef<VolunteerRow, VolunteerInsert, VolunteerUpdate>
+      volunteer_private: TableDef<VolunteerPrivateRow, VolunteerPrivateInsert, VolunteerPrivateUpdate>
       volunteer_departments: TableDef<VolunteerDepartmentRow, VolunteerDepartmentInsert, VolunteerDepartmentUpdate>
       tags: TableDef<TagRow, TagInsert, TagUpdate>
       volunteer_tags: TableDef<VolunteerTagRow, VolunteerTagInsert, VolunteerTagUpdate>
@@ -446,6 +532,10 @@ export type Database = {
       leader_evaluations: TableDef<LeaderEvaluationRow, LeaderEvaluationInsert, LeaderEvaluationUpdate>
       form_submissions: TableDef<FormSubmissionRow, FormSubmissionInsert, FormSubmissionUpdate>
       app_settings: TableDef<AppSettingRow, AppSettingInsert, AppSettingUpdate>
+      event_photos: TableDef<EventPhotoRow, EventPhotoInsert, EventPhotoUpdate>
+      forms: TableDef<FormRow, FormInsert, FormUpdate>
+      form_fields: TableDef<FormFieldRow, FormFieldInsert, FormFieldUpdate>
+      form_responses: TableDef<FormResponseRow, FormResponseInsert, FormResponseUpdate>
     }
     Views: Record<string, never>
     Functions: Record<string, never>

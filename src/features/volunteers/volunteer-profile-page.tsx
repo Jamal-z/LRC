@@ -4,14 +4,17 @@ import {
   ArrowLeft,
   CalendarDays,
   Clock,
+  LifeBuoy,
   Mail,
   MapPin,
   Pencil,
   Phone,
+  Sparkles,
   Star,
+  UserRoundCheck,
 } from "lucide-react"
 import { useVolunteer } from "./use-volunteers"
-import { useVolunteerHistory } from "./use-volunteer-history"
+import { evaluationAverage, useVolunteerHistory } from "./use-volunteer-history"
 import { VolunteerFormDialog } from "./volunteer-form-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -112,19 +115,19 @@ export function VolunteerProfilePage() {
             </div>
 
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
-              {volunteer.phone && (
+              {volunteer.volunteer_private?.phone && (
                 <span className="inline-flex items-center gap-1.5">
-                  <Phone className="size-3.5" /> {volunteer.phone}
+                  <Phone className="size-3.5" /> {volunteer.volunteer_private?.phone}
                 </span>
               )}
-              {volunteer.email && (
+              {volunteer.volunteer_private?.email && (
                 <span className="inline-flex items-center gap-1.5">
-                  <Mail className="size-3.5" /> {volunteer.email}
+                  <Mail className="size-3.5" /> {volunteer.volunteer_private?.email}
                 </span>
               )}
-              {volunteer.city && (
+              {volunteer.volunteer_private?.city && (
                 <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="size-3.5" /> {volunteer.city}
+                  <MapPin className="size-3.5" /> {volunteer.volunteer_private?.city}
                 </span>
               )}
               <span className="inline-flex items-center gap-1.5">
@@ -132,7 +135,7 @@ export function VolunteerProfilePage() {
                 {new Date(volunteer.join_date).toLocaleDateString()}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <Clock className="size-3.5" /> {history?.totalHours ?? 0} volunteer hours
+                <Clock className="size-3.5" /> {history?.totalShifts ?? 0} shifts
               </span>
             </div>
 
@@ -145,6 +148,24 @@ export function VolunteerProfilePage() {
                   {vd.departments.name}
                 </Badge>
               ))}
+              {history?.flags.potentialLeader && (
+                <Badge className="gap-1 bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                  <UserRoundCheck className="size-3" />
+                  Potential booth leader
+                </Badge>
+              )}
+              {history?.flags.talented && (
+                <Badge className="gap-1 bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+                  <Sparkles className="size-3" />
+                  Talented
+                </Badge>
+              )}
+              {history?.flags.needsFollowUp && (
+                <Badge className="gap-1 bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                  <LifeBuoy className="size-3" />
+                  Needs follow-up
+                </Badge>
+              )}
             </div>
 
             {volunteer.volunteer_tags.length > 0 && (
@@ -169,33 +190,72 @@ export function VolunteerProfilePage() {
         </CardContent>
       </Card>
 
+      {/* headline stats */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Cumulative rating</p>
+            <p className="mt-1 flex items-center gap-1.5 text-2xl font-semibold text-foreground">
+              <Star className="size-5 fill-amber-400 text-amber-400" />
+              {history?.cumulativeAverage != null
+                ? `${history.cumulativeAverage.toFixed(1)}/5`
+                : "—"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Total shifts</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">
+              {history?.totalShifts ?? 0}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Events joined</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">
+              {history?.eventsCount ?? 0}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Evaluations</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">
+              {history?.evaluations.length ?? 0}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent>
             <p className="text-sm text-muted-foreground">University ID</p>
             <p className="mt-1 text-sm font-medium text-foreground">
-              {volunteer.university_id || "—"}
+              {volunteer.volunteer_private?.university_id || "—"}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent>
             <p className="text-sm text-muted-foreground">Major</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{volunteer.major || "—"}</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{volunteer.volunteer_private?.major || "—"}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent>
             <p className="text-sm text-muted-foreground">Skills</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{volunteer.skills || "—"}</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{volunteer.volunteer_private?.skills || "—"}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent>
             <p className="text-sm text-muted-foreground">Languages</p>
-            {volunteer.languages ? (
+            {volunteer.volunteer_private?.languages ? (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {volunteer.languages
+                {volunteer.volunteer_private?.languages
                   .split(/[,،\n\/]+/)
                   .map((lang) => lang.trim())
                   .filter(Boolean)
@@ -214,7 +274,7 @@ export function VolunteerProfilePage() {
           <CardContent>
             <p className="text-sm text-muted-foreground">Availability</p>
             <p className="mt-1 text-sm font-medium text-foreground">
-              {volunteer.availability || "—"}
+              {volunteer.volunteer_private?.availability || "—"}
             </p>
           </CardContent>
         </Card>
@@ -247,12 +307,9 @@ export function VolunteerProfilePage() {
                           {p.role_description ? ` · ${p.role_description}` : ""}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">{p.total_hours}h</span>
-                        <Badge variant="secondary">
-                          {PARTICIPATION_STATUS_LABELS[p.participation_status as ParticipationStatus]}
-                        </Badge>
-                      </div>
+                      <Badge variant="secondary">
+                        {PARTICIPATION_STATUS_LABELS[p.participation_status as ParticipationStatus]}
+                      </Badge>
                     </li>
                   ))}
                 </ul>
@@ -270,33 +327,88 @@ export function VolunteerProfilePage() {
         <TabsContent value="event-evals">
           <Card>
             <CardContent>
-              {history?.eventEvaluations.length ? (
+              {history?.evaluations.length ? (
                 <ul className="divide-y divide-border">
-                  {history.eventEvaluations.map((ev) => (
-                    <li key={ev.id} className="py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {ev.events?.name ?? "Event"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
+                  {history.evaluations.map((ev) => {
+                    const average = evaluationAverage(ev)
+                    return (
+                      <li key={ev.id} className="py-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-foreground">
+                            {ev.events?.name ?? "Event"}
+                            {(ev.event_booths || ev.departments) && (
+                              <span className="text-muted-foreground">
+                                {" "}
+                                · {ev.event_booths?.name ?? ev.departments?.name}
+                              </span>
+                            )}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {ev.shifts_count} shifts
+                            </Badge>
+                            {average != null && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Star className="size-3 fill-amber-400 text-amber-400" />
+                                {average.toFixed(1)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                          <span>
+                            Meetings: <Rating value={ev.meeting_attendance_rating} />
+                          </span>
+                          <span>
+                            Performance: <Rating value={ev.performance_rating} />
+                          </span>
+                          <span>
+                            Teamwork: <Rating value={ev.teamwork_rating} />
+                          </span>
+                          <span>
+                            Communication: <Rating value={ev.communication_rating} />
+                          </span>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {ev.potential_future_booth_leader && (
+                            <Badge variant="secondary" className="gap-1 text-xs">
+                              <UserRoundCheck className="size-3" />
+                              Potential booth leader
+                            </Badge>
+                          )}
+                          {ev.is_talented && (
+                            <Badge variant="secondary" className="gap-1 text-xs">
+                              <Sparkles className="size-3" />
+                              Talented
+                            </Badge>
+                          )}
+                          {ev.needs_follow_up && (
+                            <Badge className="gap-1 bg-amber-100 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                              <LifeBuoy className="size-3" />
+                              Needs follow-up
+                            </Badge>
+                          )}
+                        </div>
+
+                        {ev.notes && (
+                          <p className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-sm text-foreground">
+                            {ev.notes}
+                          </p>
+                        )}
+                        <p className="mt-1.5 text-xs text-muted-foreground">
                           by {ev.profiles?.full_name ?? "—"} ·{" "}
                           {new Date(ev.created_at).toLocaleDateString()}
                         </p>
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                        <span>Performance: <Rating value={ev.performance_rating} /></span>
-                        <span>Commitment: <Rating value={ev.commitment_rating} /></span>
-                        <span>Teamwork: <Rating value={ev.teamwork_rating} /></span>
-                        <span>Communication: <Rating value={ev.communication_rating} /></span>
-                      </div>
-                      {ev.notes && <p className="mt-1.5 text-sm text-muted-foreground">{ev.notes}</p>}
-                    </li>
-                  ))}
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : (
                 <EmptyState
-                  title="No event evaluations yet"
-                  description="Booth and department leader evaluations will show here."
+                  title="No evaluations yet"
+                  description="Booth and team leader evaluations will show here after each event."
                   icon={Star}
                 />
               )}
@@ -341,21 +453,21 @@ export function VolunteerProfilePage() {
               <CardTitle className="text-base">Internal notes</CardTitle>
             </CardHeader>
             <CardContent>
-              {volunteer.internal_notes ? (
+              {volunteer.volunteer_private?.internal_notes ? (
                 <p className="whitespace-pre-wrap text-sm text-foreground">
-                  {volunteer.internal_notes}
+                  {volunteer.volunteer_private?.internal_notes}
                 </p>
               ) : (
                 <EmptyState title="No notes" description="Use Edit to add internal notes." />
               )}
-              {(volunteer.emergency_contact_name || volunteer.emergency_contact_phone) && (
+              {(volunteer.volunteer_private?.emergency_contact_name || volunteer.volunteer_private?.emergency_contact_phone) && (
                 <div className="mt-4 rounded-lg border border-border p-3">
                   <p className="text-xs font-medium uppercase text-muted-foreground">
                     Emergency contact
                   </p>
                   <p className="mt-1 text-sm text-foreground">
-                    {volunteer.emergency_contact_name}
-                    {volunteer.emergency_contact_phone && ` · ${volunteer.emergency_contact_phone}`}
+                    {volunteer.volunteer_private?.emergency_contact_name}
+                    {volunteer.volunteer_private?.emergency_contact_phone && ` · ${volunteer.volunteer_private?.emergency_contact_phone}`}
                   </p>
                 </div>
               )}

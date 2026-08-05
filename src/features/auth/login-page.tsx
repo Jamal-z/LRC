@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Navigate, useLocation, useNavigate } from "react-router-dom"
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { ImageIcon } from "lucide-react"
 import { useAuth } from "./auth-context"
 import { supabase } from "@/lib/supabase"
@@ -295,8 +295,17 @@ export function LoginPage() {
                   </FieldGroup>
                 </form>
 
-                <p className="mt-8 text-center text-xs text-blue-100/45">
-                  Accounts are created by the center administration.
+                <p className="mt-7 text-center text-sm text-blue-100/55">
+                  Don't have an account?{" "}
+                  <Link
+                    to="/signup"
+                    className="font-medium text-sky-300 underline-offset-4 hover:underline"
+                  >
+                    Create one
+                  </Link>
+                </p>
+                <p className="mt-2 text-center text-xs text-blue-100/40">
+                  New accounts start with the lowest access level until an admin assigns your role.
                 </p>
               </>
             ) : (
