@@ -24,6 +24,7 @@ import { useAuth } from "@/features/auth/auth-context"
 import { useVolunteers } from "@/features/volunteers/use-volunteers"
 import { useEventDetail, useRemoveParticipant, useSaveParticipant } from "./use-events"
 import { PhotoGallery } from "./photo-gallery"
+import { BoothProposalsTab } from "./booth-proposals-tab"
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -179,6 +180,7 @@ export function BoothDetailPage() {
         <TabsList>
           <TabsTrigger value="volunteers">Volunteers ({boothParticipants.length})</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
+          <TabsTrigger value="proposals">Proposals</TabsTrigger>
           <TabsTrigger value="photos">Photos</TabsTrigger>
         </TabsList>
 
@@ -209,9 +211,12 @@ export function BoothDetailPage() {
                           {participant.volunteers ? initials(participant.volunteers.full_name) : "?"}
                         </AvatarFallback>
                       </Avatar>
-                      <p className="text-sm font-medium text-foreground">
+                      <Link
+                        to={`/volunteers/${participant.volunteer_id}`}
+                        className="text-sm font-medium text-foreground hover:underline"
+                      >
                         {participant.volunteers?.full_name ?? "—"}
-                      </p>
+                      </Link>
                       {participant.role_description && (
                         <p className="text-xs text-muted-foreground">
                           {participant.role_description}
@@ -265,6 +270,15 @@ export function BoothDetailPage() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="proposals">
+          <BoothProposalsTab
+            boothId={boothId!}
+            eventId={eventId!}
+            boothName={booth.name}
+            canSubmit={canManage}
+          />
         </TabsContent>
 
         <TabsContent value="photos">

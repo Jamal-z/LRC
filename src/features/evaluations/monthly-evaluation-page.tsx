@@ -335,7 +335,15 @@ export function MonthlyEvaluationPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-lg">{selected.fullName}</CardTitle>
+                    <CardTitle className="text-lg">
+                      <Link
+                        to={`/volunteers/${selected.volunteerId}`}
+                        className="hover:underline"
+                        title="Open profile"
+                      >
+                        {selected.fullName}
+                      </Link>
+                    </CardTitle>
                     <p className="text-sm text-muted-foreground">
                       {MONTH_NAMES[month - 1]} {year}
                     </p>

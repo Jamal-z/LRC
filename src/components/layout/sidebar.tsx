@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom"
+import { LrcLogoPlate } from "@/components/shared/lrc-logo"
 import { cn } from "@/lib/utils"
 import { NAV_ITEMS } from "./nav-items"
 import type { UserRole } from "@/types/database.types"
@@ -15,13 +16,10 @@ export function Sidebar({ role, className }: { role: UserRole; className?: strin
       )}
     >
       <div className="flex h-16 items-center gap-3 px-5">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-white text-sm font-bold text-[#2563eb] dark:bg-white/10 dark:text-white dark:ring-1 dark:ring-white/20">
-          LRC
-        </div>
-        <div>
-          <p className="text-sm font-semibold leading-tight">Volunteer System</p>
-          <p className="text-[0.68rem] text-white/70">Language Resource Center</p>
-        </div>
+        {/* the wordmark already reads "Language Resource Center", so only the
+            product name sits beside it */}
+        <LrcLogoPlate logoClassName="h-6" />
+        <p className="text-sm font-semibold leading-tight">Volunteer System</p>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">

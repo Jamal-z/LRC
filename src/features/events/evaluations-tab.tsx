@@ -220,7 +220,12 @@ export function EvaluationsTab({
                 <li key={evaluation.id} className="py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium text-foreground">
-                      {evaluation.volunteers?.full_name}
+                      <Link
+                        to={`/volunteers/${evaluation.volunteer_id}`}
+                        className="hover:underline"
+                      >
+                        {evaluation.volunteers?.full_name}
+                      </Link>
                       {evaluation.event_booths && (
                         <span className="text-muted-foreground">
                           {" "}

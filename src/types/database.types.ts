@@ -433,7 +433,56 @@ export type EventPhotoInsert = Partial<EventPhotoRow> &
   Pick<EventPhotoRow, "event_id" | "url" | "path">
 export type EventPhotoUpdate = Partial<EventPhotoRow>
 
+export type InterviewStatus = "accepted" | "maybe" | "rejected"
+
+export type InterviewRow = {
+  id: string
+  full_name: string
+  university_id: string | null
+  major: string | null
+  phone: string | null
+  email: string | null
+  city: string | null
+  department_id: string | null
+  ratings: Record<string, number>
+  notes: string | null
+  strengths: string | null
+  concerns: string | null
+  status: InterviewStatus
+  converted_volunteer_id: string | null
+  converted_at: string | null
+  interviewed_by: string | null
+  interviewed_at: string
+  created_at: string
+  updated_at: string
+}
+export type InterviewInsert = Partial<InterviewRow> & Pick<InterviewRow, "full_name">
+export type InterviewUpdate = Partial<InterviewRow>
+
+export type BoothProposalRow = {
+  id: string
+  booth_id: string
+  event_id: string
+  title: string
+  notes: string | null
+  requested_items: string | null
+  file_url: string | null
+  file_path: string | null
+  file_name: string | null
+  status: "submitted" | "approved" | "rejected"
+  reviewed_by: string | null
+  reviewed_at: string | null
+  review_notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+export type BoothProposalInsert = Partial<BoothProposalRow> &
+  Pick<BoothProposalRow, "booth_id" | "event_id" | "title">
+export type BoothProposalUpdate = Partial<BoothProposalRow>
+
 export type FormDestination = "volunteers" | "event_participants" | "none"
+export type FormTheme = "light" | "soft" | "gradient" | "dark"
 
 export type FormRow = {
   id: string
@@ -442,6 +491,7 @@ export type FormRow = {
   slug: string
   accent_color: string
   cover_image_url: string | null
+  theme: FormTheme
   is_active: boolean
   destination: FormDestination
   destination_event_id: string | null
@@ -536,6 +586,8 @@ export type Database = {
       forms: TableDef<FormRow, FormInsert, FormUpdate>
       form_fields: TableDef<FormFieldRow, FormFieldInsert, FormFieldUpdate>
       form_responses: TableDef<FormResponseRow, FormResponseInsert, FormResponseUpdate>
+      booth_proposals: TableDef<BoothProposalRow, BoothProposalInsert, BoothProposalUpdate>
+      interviews: TableDef<InterviewRow, InterviewInsert, InterviewUpdate>
     }
     Views: Record<string, never>
     Functions: Record<string, never>

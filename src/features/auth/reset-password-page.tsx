@@ -2,8 +2,8 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { PasswordInput } from "@/components/shared/password-input"
 
 function readUrlError() {
   const hash = window.location.hash.replace(/^#/, "")
@@ -166,9 +166,8 @@ export function ResetPasswordPage() {
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="password">New password</FieldLabel>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -179,9 +178,8 @@ export function ResetPasswordPage() {
 
             <Field>
               <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}

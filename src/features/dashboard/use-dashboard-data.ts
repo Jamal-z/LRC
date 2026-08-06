@@ -53,6 +53,8 @@ export interface DashboardData {
   totalShifts: number
   eventsThisYear: number
   topVolunteers: TopVolunteer[]
+  /** best-rated volunteer per team, so every team gets a spotlight */
+  topByTeam: { department: string; volunteer: TopVolunteer }[]
   memories: MemoryPhoto[]
 }
 
@@ -186,7 +188,7 @@ export function useDashboardData() {
       }
 
       const departmentNameById = new Map(departments.map((d) => [d.id, d.name]))
-      const topVolunteers: TopVolunteer[] = roster
+      const rated: TopVolunteer[] = roster
         .map((volunteer) => {
           const stats = statsByVolunteer.get(volunteer.id)
           if (!stats?.ratingCount) return null
@@ -204,7 +206,17 @@ export function useDashboardData() {
         })
         .filter((v): v is TopVolunteer => v != null)
         .sort((a, b) => b.average - a.average || b.shifts - a.shifts)
-        .slice(0, 5)
+
+      const topVolunteers = rated.slice(0, 6)
+
+      // one standout per team — `rated` is already sorted, so the first hit wins
+      const seenTeams = new Set<string>()
+      const topByTeam: { department: string; volunteer: TopVolunteer }[] = []
+      for (const volunteer of rated) {
+        if (!volunteer.department || seenTeams.has(volunteer.department)) continue
+        seenTeams.add(volunteer.department)
+        topByTeam.push({ department: volunteer.department, volunteer })
+      }
 
       const memories: MemoryPhoto[] = shuffle(
         ((photosRes.data ?? []) as unknown as {
@@ -217,7 +229,7 @@ export function useDashboardData() {
           eventName: photo.events?.name ?? null,
           eventDate: photo.events?.date ?? null,
         }))
-      ).slice(0, 12)
+      ).slice(0, 18)
 
       return {
         totalVolunteers: roster.length,
@@ -232,6 +244,7 @@ export function useDashboardData() {
         totalShifts: evaluations.reduce((sum, e) => sum + (e.shifts_count ?? 0), 0),
         eventsThisYear: eventsThisYearRes.count ?? 0,
         topVolunteers,
+        topByTeam,
         memories,
       }
     },

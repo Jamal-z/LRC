@@ -9,6 +9,8 @@ import { useAuth } from "./auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, FieldLabel, FieldError, FieldGroup, FieldDescription } from "@/components/ui/field"
+import { PasswordInput } from "@/components/shared/password-input"
+import { LrcLogoPlate } from "@/components/shared/lrc-logo"
 
 const signupSchema = z
   .object({
@@ -76,11 +78,9 @@ export function SignupPage() {
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-white/10 text-lg font-bold text-white ring-1 ring-white/20 backdrop-blur">
-            LRC
-          </div>
+          <LrcLogoPlate className="rounded-2xl px-3 py-2 shadow-lg" logoClassName="h-9" />
           <p className="text-xs font-medium uppercase tracking-[0.28em] text-sky-200/70">
-            Language Resource Center
+            Volunteer System
           </p>
         </div>
 
@@ -144,9 +144,8 @@ export function SignupPage() {
                     <FieldLabel htmlFor="su-password" className="text-blue-50/90">
                       Password
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="su-password"
-                      type="password"
                       autoComplete="new-password"
                       placeholder="••••••••"
                       className="h-11 rounded-xl border-white/10 bg-[#102341] text-white placeholder:text-blue-100/35 focus-visible:ring-sky-300/40"
@@ -162,9 +161,8 @@ export function SignupPage() {
                     <FieldLabel htmlFor="su-confirm" className="text-blue-50/90">
                       Confirm password
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="su-confirm"
-                      type="password"
                       autoComplete="new-password"
                       placeholder="••••••••"
                       className="h-11 rounded-xl border-white/10 bg-[#102341] text-white placeholder:text-blue-100/35 focus-visible:ring-sky-300/40"

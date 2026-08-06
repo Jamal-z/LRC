@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowDown,
+  ArrowUp,
+  GripVertical,
+  ImagePlus,
+  Plus,
+  Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,7 +36,10 @@ import {
   useFormFields,
   useSaveForm,
 } from "./use-forms"
-import type { FormDestination, FormFieldType } from "@/types/database.types"
+import { FORM_THEMES } from "./form-theme"
+import { supabase } from "@/lib/supabase"
+import { cn } from "@/lib/utils"
+import type { FormDestination, FormFieldType, FormTheme } from "@/types/database.types"
 
 const NONE = "__none__"
 
@@ -81,6 +92,11 @@ export function FormBuilderPage() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [accentColor, setAccentColor] = useState(ACCENT_COLORS[0])
+  const [theme, setTheme] = useState<FormTheme>("light")
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
   const [isActive, setIsActive] = useState(true)
   const [destination, setDestination] = useState<FormDestination>("volunteers")
   const [destinationEventId, setDestinationEventId] = useState<string>(NONE)
@@ -105,6 +121,8 @@ export function FormBuilderPage() {
       setTitle(existingForm.title)
       setDescription(existingForm.description ?? "")
       setAccentColor(existingForm.accent_color)
+      setTheme(existingForm.theme ?? "light")
+      setCoverImageUrl(existingForm.cover_image_url)
       setIsActive(existingForm.is_active)
       setDestination(existingForm.destination)
       setDestinationEventId(existingForm.destination_event_id ?? NONE)
@@ -159,12 +177,25 @@ export function FormBuilderPage() {
     }
 
     try {
+      let coverUrl = coverImageUrl
+      if (coverFile) {
+        const ext = coverFile.name.split(".").pop()?.toLowerCase() || "jpg"
+        const path = `forms/${crypto.randomUUID()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(path, coverFile, { upsert: true })
+        if (uploadError) throw uploadError
+        coverUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl
+      }
+
       const formId = await saveForm.mutateAsync({
         form: {
           ...(id ? { id } : { created_by: profile?.id ?? null, slug: slugify(title) }),
           title: title.trim(),
           description: description || null,
           accent_color: accentColor,
+          theme,
+          cover_image_url: coverUrl,
           is_active: isActive,
           destination,
           destination_event_id: destinationEventId === NONE ? null : destinationEventId,
@@ -387,6 +418,84 @@ export function FormBuilderPage() {
               <CardDescription>How the form looks and what accepting does.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
+              <Field>
+                <FieldLabel>Theme</FieldLabel>
+                <div className="grid grid-cols-2 gap-2">
+                  {FORM_THEMES.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setTheme(option.value)}
+                      className={cn(
+                        "flex flex-col gap-1.5 rounded-xl border p-2 text-left transition-colors",
+                        theme === option.value
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-border hover:bg-accent/40"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "h-10 w-full rounded-lg border border-black/5",
+                          option.preview
+                        )}
+                      />
+                      <span className="text-xs font-medium text-foreground">{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field>
+                <FieldLabel>Cover image</FieldLabel>
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="group relative h-28 w-full overflow-hidden rounded-xl border-2 border-dashed border-border transition-colors hover:border-primary/50"
+                >
+                  {coverPreview || coverImageUrl ? (
+                    <img
+                      src={coverPreview ?? coverImageUrl ?? undefined}
+                      alt="Form cover"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full flex-col items-center justify-center gap-1 text-muted-foreground">
+                      <ImagePlus className="size-5" />
+                      <span className="text-xs">Add a cover image</span>
+                    </span>
+                  )}
+                  <span className="absolute inset-0 hidden items-center justify-center bg-black/40 text-xs font-medium text-white group-hover:flex">
+                    Change image
+                  </span>
+                </button>
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setCoverFile(file)
+                      setCoverPreview(URL.createObjectURL(file))
+                    }
+                  }}
+                />
+                {(coverPreview || coverImageUrl) && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => {
+                      setCoverFile(null)
+                      setCoverPreview(null)
+                      setCoverImageUrl(null)
+                    }}
+                  >
+                    Remove image
+                  </Button>
+                )}
+              </Field>
+
               <Field>
                 <FieldLabel>Accent colour</FieldLabel>
                 <div className="flex flex-wrap gap-2">

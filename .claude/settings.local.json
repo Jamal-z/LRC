@@ -20,7 +20,17 @@
       "mcp__claude-in-chrome__list_connected_browsers",
       "Bash(node -e ' *)",
       "Bash(sed -i '/import { BoothEvaluations } from \".\\\\/booth-evaluations\"/d' src/features/events/booth-detail-page.tsx)",
-      "Bash(rm -f src/features/events/booth-evaluations.tsx)"
+      "Bash(rm -f src/features/events/booth-evaluations.tsx)",
+      "Bash(python -)",
+      "Bash(sed -i '232s/slice\\(0, 12\\)/slice\\(0, 18\\)/' src/features/dashboard/use-dashboard-data.ts)",
+      "Bash(sed -i '246s/        topVolunteers,/        topVolunteers,\\\\n        topByTeam,/' src/features/dashboard/use-dashboard-data.ts)",
+      "Bash(ls -la \"/c/Users/mt2x.com/Downloads/WhatsApp Video 2026-08-06 at 8.07.08 PM.mp4\" 2>&1 && du -h \"/c/Users/mt2x.com/Downloads/WhatsApp Video 2026-08-06 at 8.07.08 PM.mp4\")",
+      "Bash(mkdir -p public/media)",
+      "Bash(cp \"/c/Users/mt2x.com/Downloads/WhatsApp Video 2026-08-06 at 8.07.08 PM.mp4\" public/media/dashboard-hero.mp4)",
+      "PowerShell(npm run build)",
+      "PowerShell($f = \"C:\\\\Users\\\\mt2x.com\\\\OneDrive\\\\Desktop\\\\LRCweb\\\\public\\\\media\\\\dashboard-hero.mp4\"; $s = New-Object -ComObject Shell.Application; $folder = $s.Namespace\\(\\(Split-Path $f\\)\\); $item = $folder.ParseName\\(\\(Split-Path $f -Leaf\\)\\); 0..320 | ForEach-Object { $n = $folder.GetDetailsOf\\($null, $_\\); $v = $folder.GetDetailsOf\\($item, $_\\); if \\($v -and \\($n -match 'Width|Height|Length|Frame|Dimen'\\)\\) { \"$n = $v\" } })",
+      "PowerShell($f = \"C:\\\\Users\\\\mt2x.com\\\\OneDrive\\\\Desktop\\\\LRCweb\\\\public\\\\media\\\\dashboard-hero.mp4\"; $s = New-Object -ComObject Shell.Application; $folder = $s.Namespace\\(\\(Split-Path $f\\)\\); $item = $folder.ParseName\\(\\(Split-Path $f -Leaf\\)\\); 0..320 | ForEach-Object { $n = $folder.GetDetailsOf\\($null, $_\\); $v = $folder.GetDetailsOf\\($item, $_\\); if \\($v\\) { \"[$_] $n = $v\" } })",
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\Downloads\" -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match '\\\\.\\(png|jpg|jpeg|svg|webp\\)$' } | Sort-Object LastWriteTime -Descending | Select-Object -First 12 Name, Length, LastWriteTime | Format-Table -AutoSize)"
     ]
   }
 }

@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, FieldLabel, FieldError, FieldGroup } from "@/components/ui/field"
+import { PasswordInput } from "@/components/shared/password-input"
+import { LrcLogoPlate } from "@/components/shared/lrc-logo"
 import { useLoginPagePhotos } from "@/features/settings/use-login-page-photos"
 
 const loginSchema = z.object({
@@ -166,9 +168,7 @@ export function LoginPage() {
         {/* main title */}
         <div className="absolute top-9 left-10 z-10">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-white/15 text-base font-bold text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md">
-              LRC
-            </div>
+            <LrcLogoPlate className="rounded-2xl px-3 py-2 shadow-lg" logoClassName="h-8" />
             <p className="text-xs font-medium uppercase tracking-[0.32em] text-sky-100/80">
               Internal Platform
             </p>
@@ -216,9 +216,7 @@ export function LoginPage() {
 
         <div className="relative z-10 w-full max-w-md">
           <div className="mb-8 flex flex-col items-start gap-4 lg:hidden">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-white/10 text-lg font-bold text-white shadow-lg ring-1 ring-white/15 backdrop-blur">
-              LRC
-            </div>
+            <LrcLogoPlate className="rounded-2xl px-3 py-2 shadow-lg" logoClassName="h-8" />
           </div>
 
           <div className="rounded-[2rem] border border-white/10 bg-[#0b1a35]/85 p-8 shadow-2xl shadow-black/35 backdrop-blur-2xl">
@@ -257,9 +255,8 @@ export function LoginPage() {
                       <FieldLabel htmlFor="password" className="text-blue-50/90">
                         Password
                       </FieldLabel>
-                      <Input
+                      <PasswordInput
                         id="password"
-                        type="password"
                         autoComplete="current-password"
                         placeholder="••••••••"
                         className="h-11 rounded-xl border-white/10 bg-[#102341] text-white shadow-inner shadow-black/10 placeholder:text-blue-100/35 focus-visible:ring-sky-300/40"

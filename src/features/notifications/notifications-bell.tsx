@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "react-router-dom"
 import { Bell, CheckCheck } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/features/auth/auth-context"
@@ -66,6 +67,11 @@ export function NotificationsBell() {
               Mark all read
             </Button>
           )}
+        </div>
+        <div className="border-b border-border px-3 py-1.5">
+          <Button variant="ghost" size="xs" className="w-full" render={<Link to="/notifications" />}>
+            Open notifications page
+          </Button>
         </div>
         <div className="max-h-80 overflow-y-auto">
           {notifications.length === 0 ? (

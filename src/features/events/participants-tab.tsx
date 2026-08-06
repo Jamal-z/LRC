@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { Plus, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -190,9 +191,13 @@ export function ParticipantsTab({
                             {participant.volunteers ? initials(participant.volunteers.full_name) : "?"}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="font-medium text-foreground">
+                        <Link
+                          to={`/volunteers/${participant.volunteer_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-foreground hover:underline"
+                        >
                           {participant.volunteers?.full_name ?? "—"}
-                        </span>
+                        </Link>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">{participant.departments?.name ?? "—"}</TableCell>

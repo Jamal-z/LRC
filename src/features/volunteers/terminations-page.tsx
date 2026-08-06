@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { RotateCcw, Trash2, UserX } from "lucide-react"
+import { Link } from "react-router-dom"
+import { Download, RotateCcw, Trash2, UserX } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,7 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/shared/empty-state"
+import { exportToCsv, exportToExcel, type ExportColumn } from "@/lib/export"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   useDeleteVolunteer,
@@ -31,6 +39,18 @@ import {
   useTerminatedVolunteers,
   type VolunteerWithRelations,
 } from "./use-volunteers"
+
+const EXPORT_COLUMNS: ExportColumn<VolunteerWithRelations>[] = [
+  { header: "Full Name", value: (v) => v.full_name },
+  { header: "University ID", value: (v) => v.volunteer_private?.university_id },
+  { header: "WhatsApp", value: (v) => v.volunteer_private?.phone },
+  { header: "Email", value: (v) => v.volunteer_private?.email },
+  { header: "Team (was)", value: (v) => v.departments?.name },
+  {
+    header: "Terminated On",
+    value: (v) => (v.archived_at ? new Date(v.archived_at).toLocaleDateString() : ""),
+  },
+]
 
 function initials(name: string) {
   return name
@@ -72,11 +92,31 @@ export function TerminationsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Terminations</h1>
-        <p className="text-sm text-muted-foreground">
-          Volunteers removed from the active roster. Restore them, or delete permanently.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Terminations</h1>
+          <p className="text-sm text-muted-foreground">
+            Volunteers removed from the active roster. Restore them, or delete permanently.
+          </p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" disabled={!volunteers?.length} />}>
+            <Download className="size-4" />
+            Export
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => exportToExcel(volunteers ?? [], EXPORT_COLUMNS, "terminations")}
+            >
+              Excel (.xlsx)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => exportToCsv(volunteers ?? [], EXPORT_COLUMNS, "terminations")}
+            >
+              CSV (.csv)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Card>
@@ -118,7 +158,12 @@ export function TerminationsPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium text-foreground">{volunteer.full_name}</p>
+                          <Link
+                            to={`/volunteers/${volunteer.id}`}
+                            className="font-medium text-foreground hover:underline"
+                          >
+                            {volunteer.full_name}
+                          </Link>
                           {volunteer.volunteer_private?.email && (
                             <p className="text-xs text-muted-foreground">{volunteer.volunteer_private?.email}</p>
                           )}

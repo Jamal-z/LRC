@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
+import { PasswordInput } from "@/components/shared/password-input"
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -152,9 +153,8 @@ export function AccountDialog({
 
           <Field>
             <FieldLabel htmlFor="acc-password">New password</FieldLabel>
-            <Input
+            <PasswordInput
               id="acc-password"
-              type="password"
               placeholder="Leave empty to keep current password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}

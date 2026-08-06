@@ -298,7 +298,15 @@ export function EvaluateGroupPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-lg">{selected.fullName}</CardTitle>
+                    <CardTitle className="text-lg">
+                      <Link
+                        to={`/volunteers/${selected.volunteerId}`}
+                        className="hover:underline"
+                        title="Open profile"
+                      >
+                        {selected.fullName}
+                      </Link>
+                    </CardTitle>
                     {selected.roleDescription && (
                       <p className="text-sm text-muted-foreground">{selected.roleDescription}</p>
                     )}

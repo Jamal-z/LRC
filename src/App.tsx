@@ -28,7 +28,9 @@ import { FormBuilderPage } from "@/features/forms/form-builder-page"
 import { FormResponsesPage } from "@/features/forms/form-responses-page"
 import { PublicFormPage } from "@/features/forms/public-form-page"
 import { MyProfilePage } from "@/features/auth/my-profile-page"
+import { NotificationsPage } from "@/features/notifications/notifications-page"
 import { SignupPage } from "@/features/auth/signup-page"
+import { InterviewsPage } from "@/features/interviews/interviews-page"
 import { ReportsPage } from "@/features/reports/reports-page"
 import { UsersPage } from "@/features/users/users-page"
 import { ImportPage } from "@/features/import/import-page"
@@ -53,6 +55,7 @@ function App() {
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="profile" element={<MyProfilePage />} />
+                <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="volunteers" element={<VolunteersPage />} />
                 <Route path="volunteers/:id" element={<VolunteerProfilePage />} />
                 <Route path="departments" element={<DepartmentsPage />} />
@@ -70,6 +73,7 @@ function App() {
                 />
 
                 <Route element={<RequireRole roles={[...ADMIN_ROLES]} />}>
+                  <Route path="interviews" element={<InterviewsPage />} />
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="forms" element={<FormsPage />} />
                   <Route path="forms/new" element={<FormBuilderPage />} />

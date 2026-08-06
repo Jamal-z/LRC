@@ -14,7 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
+import { LrcLogoPlate } from "@/components/shared/lrc-logo"
 import { useForm, useFormFields, useSubmitFormResponse } from "./use-forms"
+import { formThemeStyle } from "./form-theme"
+import { cn } from "@/lib/utils"
 import type { FormFieldRow } from "@/types/database.types"
 
 type AnswerMap = Record<string, string | string[] | null>
@@ -76,7 +79,7 @@ export function PublicFormPage() {
 
   if (isLoading || fieldsLoading) {
     return (
-      <div className="min-h-svh bg-[#071226] px-4 py-12">
+      <div className="min-h-svh bg-white px-4 py-12 dark:bg-background">
         <div className="mx-auto max-w-xl">
           <Skeleton className="h-96 w-full rounded-3xl" />
         </div>
@@ -86,8 +89,8 @@ export function PublicFormPage() {
 
   if (!form || !form.is_active) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-[#071226] px-4">
-        <div className="flex max-w-md flex-col items-center gap-3 rounded-3xl bg-white p-10 text-center shadow-2xl dark:bg-card">
+      <div className="flex min-h-svh items-center justify-center bg-sky-50 px-4 dark:bg-background">
+        <div className="flex max-w-md flex-col items-center gap-3 rounded-3xl bg-white p-10 text-center shadow-xl dark:bg-card">
           <div className="flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
             <FileWarning className="size-7" />
           </div>
@@ -205,29 +208,43 @@ export function PublicFormPage() {
     }
   }
 
+  const style = formThemeStyle(form.theme ?? "light")
+
   return (
-    <div className="min-h-svh bg-[#071226] px-4 py-10">
-      <div
-        className="pointer-events-none fixed -top-40 -left-40 size-[30rem] rounded-full opacity-25 blur-3xl"
-        style={{ backgroundColor: accent }}
-      />
-      <div
-        className="pointer-events-none fixed -bottom-48 -right-40 size-[28rem] rounded-full opacity-20 blur-3xl"
-        style={{ backgroundColor: accent }}
-      />
+    <div className={cn("min-h-svh px-4 py-10", style.page)}>
+      {style.blobs && (
+        <>
+          <div
+            className="pointer-events-none fixed -top-40 -left-40 size-[30rem] rounded-full opacity-20 blur-3xl"
+            style={{ backgroundColor: accent }}
+          />
+          <div
+            className="pointer-events-none fixed -bottom-48 -right-40 size-[28rem] rounded-full opacity-15 blur-3xl"
+            style={{ backgroundColor: accent }}
+          />
+        </>
+      )}
 
       <div className="relative mx-auto max-w-xl">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-white/10 text-lg font-bold text-white ring-1 ring-white/20 backdrop-blur">
-            LRC
-          </div>
-          <p className="text-xs font-medium uppercase tracking-[0.28em] text-sky-200/70">
-            Language Resource Center
+          <LrcLogoPlate className="rounded-2xl px-3 py-2 shadow-md" logoClassName="h-9" />
+          <p
+            className={cn(
+              "text-xs font-medium uppercase tracking-[0.28em]",
+              style.pageSubText
+            )}
+          >
+            Volunteer System
           </p>
         </div>
 
         {submitted ? (
-          <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-10 text-center shadow-2xl dark:bg-card">
+          <div
+            className={cn(
+              "flex flex-col items-center gap-3 rounded-3xl p-10 text-center",
+              style.card
+            )}
+          >
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <CheckCircle2 className="size-8" />
             </div>
@@ -238,7 +255,16 @@ export function PublicFormPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-card">
+          <div className={cn("overflow-hidden rounded-3xl", style.card)}>
+            {form.cover_image_url ? (
+              <div className="h-40 w-full overflow-hidden sm:h-48">
+                <img
+                  src={form.cover_image_url}
+                  alt={form.title}
+                  className="size-full object-cover"
+                />
+              </div>
+            ) : null}
             <div className="h-2.5 w-full" style={{ backgroundColor: accent }} aria-hidden />
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5 p-6 sm:p-8" dir="rtl">
               <div>
@@ -284,7 +310,7 @@ export function PublicFormPage() {
           </div>
         )}
 
-        <p className="mt-6 text-center text-xs text-blue-200/50">
+        <p className={cn("mt-6 text-center text-xs", style.footer)}>
           Designed by Jamal Ilaiwi · LRC {new Date().getFullYear()}
         </p>
       </div>

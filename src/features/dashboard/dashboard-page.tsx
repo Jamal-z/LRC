@@ -2,35 +2,23 @@ import { Link } from "react-router-dom"
 import {
   AlertTriangle,
   CalendarDays,
-  CalendarPlus,
-  ClipboardCheck,
   Images,
-  KanbanSquare,
   Sparkles,
   Star,
-  Timer,
-  UploadCloud,
-  UserPlus,
+  Trophy,
   Users,
 } from "lucide-react"
 import { useDashboardData } from "./use-dashboard-data"
 import { DepartmentCarousel } from "./department-carousel"
-import { StatCard } from "@/components/shared/stat-card"
 import { EmptyState } from "@/components/shared/empty-state"
+import { LrcLogoPlate } from "@/components/shared/lrc-logo"
+import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/features/auth/auth-context"
 import { ROLE_LABELS } from "@/lib/constants"
-
-const QUICK_ACTIONS = [
-  { label: "Add Volunteer", to: "/volunteers", icon: UserPlus },
-  { label: "Create Event", to: "/events", icon: CalendarPlus },
-  { label: "Evaluate", to: "/evaluations", icon: ClipboardCheck },
-  { label: "Create Task", to: "/tasks", icon: KanbanSquare },
-  { label: "Import Volunteers", to: "/import", icon: UploadCloud },
-]
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -44,20 +32,62 @@ const MEDAL_STYLES = [
 
 export function DashboardPage() {
   const { profile } = useAuth()
-  const { data, isLoading, isError } = useDashboardData()
+  const { data, isError } = useDashboardData()
 
   const maxDeptCount = Math.max(1, ...(data?.volunteersByDepartment.map((d) => d.count) ?? [1]))
 
+  const HERO_STATS = [
+    { label: "Volunteers", value: data?.totalVolunteers ?? 0 },
+    { label: "Active now", value: data?.activeVolunteers ?? 0 },
+    { label: "Teams", value: data?.volunteersByDepartment.length ?? 0 },
+    { label: "Shifts covered", value: data?.totalShifts ?? 0 },
+  ]
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Welcome back{profile ? `, ${profile.full_name.split(" ")[0]}` : ""}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {profile ? ROLE_LABELS[profile.role] : ""} · here's what's happening across LRC today.
-        </p>
-      </div>
+      {/* welcome + a word about the centre on the left, the looping clip kept
+          small on the right so it never takes over the screen */}
+      <Card className="overflow-hidden">
+        <CardContent className="grid grid-cols-1 items-center gap-6 py-2 lg:grid-cols-[minmax(0,1fr)_48rem]">
+          <div className="flex flex-col items-start gap-6 py-4">
+            {/* the wordmark's lettering is black, so it keeps its white plate —
+                invisible on the light card, readable at night */}
+            <LrcLogoPlate className="-ml-3 px-3 py-2 shadow-none" logoClassName="h-20 xl:h-24" />
+
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                Welcome back{profile ? `, ${profile.full_name}` : ""}
+              </h1>
+              {profile && (
+                <p className="mt-1.5 text-sm text-muted-foreground">{ROLE_LABELS[profile.role]}</p>
+              )}
+            </div>
+
+            {/* hairline grid — gap-px over the border colour draws the dividers */}
+            <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-border xl:grid-cols-4">
+              {HERO_STATS.map((stat) => (
+                <div key={stat.label} className="bg-card px-4 py-3">
+                  <p className="text-2xl font-semibold tabular-nums text-foreground">
+                    {stat.value}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <video
+            src="/media/dashboard-hero.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            // decorative footage, kept at its own aspect ratio so nothing is cropped
+            aria-hidden
+            className="mx-auto block max-h-[36rem] w-auto max-w-full rounded-xl bg-black shadow-md lg:w-full"
+          />
+        </CardContent>
+      </Card>
 
       <DepartmentCarousel />
 
@@ -69,95 +99,87 @@ export function DashboardPage() {
         </Card>
       )}
 
-      {/* headline numbers */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Volunteers"
-          value={data?.totalVolunteers ?? 0}
-          icon={Users}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Total shifts"
-          value={data?.totalShifts ?? 0}
-          icon={Timer}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Events this year"
-          value={data?.eventsThisYear ?? 0}
-          icon={CalendarDays}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Open tasks"
-          value={data?.openTasksCount ?? 0}
-          icon={KanbanSquare}
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* per-team breakdown + quick actions */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Volunteers by team</CardTitle>
+      {/* memories — the centre's own photos take the lead */}
+      {data?.memories.length ? (
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Images className="size-4 text-primary" />
+              Memories
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Moments from our events</p>
           </CardHeader>
           <CardContent>
-            {data?.volunteersByDepartment.length ? (
-              <div className="flex flex-col gap-3">
-                {data.volunteersByDepartment.map((dept) => (
-                  <Link
-                    key={dept.id}
-                    to={`/departments/${dept.id}`}
-                    className="group flex items-center gap-3"
-                  >
-                    <span className="w-44 shrink-0 truncate text-sm font-medium text-foreground group-hover:underline">
-                      {dept.department}
+            <div className="grid auto-rows-[7rem] grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+              {data.memories.map((photo, index) => (
+                <div
+                  key={photo.id}
+                  className={cn(
+                    "group relative overflow-hidden rounded-xl",
+                    // a couple of hero tiles keep the grid from looking flat
+                    index === 0 && "col-span-2 row-span-2",
+                    index === 5 && "col-span-2"
+                  )}
+                >
+                  <img
+                    src={photo.url}
+                    alt={photo.eventName ?? "Event memory"}
+                    loading="lazy"
+                    className="size-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  {photo.eventName && (
+                    <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-transparent px-2 pt-8 pb-2 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      {photo.eventName}
                     </span>
-                    <div className="h-7 flex-1 overflow-hidden rounded-lg bg-muted">
-                      <div
-                        className="flex h-full items-center rounded-lg bg-gradient-to-r from-blue-600 to-sky-400 px-2 transition-all"
-                        style={{ width: `${Math.max(6, (dept.count / maxDeptCount) * 100)}%` }}
-                      >
-                        <span className="text-xs font-semibold text-white">{dept.count}</span>
-                      </div>
-                    </div>
-                    <span className="w-20 shrink-0 text-right text-xs text-emerald-600 dark:text-emerald-400">
-                      {dept.active} active
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                title="No volunteers yet"
-                description="Import volunteers or add one to see the breakdown here."
-                icon={Users}
-              />
-            )}
+                  )}
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
+      ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Quick actions</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {QUICK_ACTIONS.map((action) => (
-              <Button
-                key={action.to}
-                variant="outline"
-                className="justify-start gap-2"
-                render={<Link to={action.to} />}
-              >
-                <action.icon className="size-4" />
-                {action.label}
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      {/* per-team breakdown — magnitude comparison, so one hue throughout */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Volunteers by team</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data?.volunteersByDepartment.length ? (
+            <div className="flex flex-col gap-2.5">
+              {data.volunteersByDepartment.map((dept) => (
+                <Link
+                  key={dept.id}
+                  to={`/departments/${dept.id}`}
+                  className="group flex items-center gap-3"
+                >
+                  <span className="w-48 shrink-0 truncate text-sm text-foreground group-hover:underline">
+                    {dept.department}
+                  </span>
+                  <div className="h-5 flex-1 rounded-md bg-muted/70">
+                    <div
+                      className="h-full rounded-md bg-primary transition-all group-hover:bg-primary/85"
+                      style={{ width: `${Math.max(3, (dept.count / maxDeptCount) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-foreground">
+                    {dept.count}
+                  </span>
+                  <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
+                    {dept.active} active
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No volunteers yet"
+              description="Import volunteers or add one to see the breakdown here."
+              icon={Users}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       {/* top rated + upcoming events */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -260,35 +282,45 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      {/* memories */}
-      {data?.memories.length ? (
+      {/* star of every team */}
+      {data?.topByTeam.length ? (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Images className="size-4 text-primary" />
-              Memories
+              <Trophy className="size-4 text-amber-500" />
+              Star of each team
             </CardTitle>
-            <p className="text-xs text-muted-foreground">Random moments from our events</p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-              {data.memories.map((photo) => (
-                <div
-                  key={photo.id}
-                  className="group relative aspect-square overflow-hidden rounded-xl"
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {data.topByTeam.map(({ department, volunteer }) => (
+                <Link
+                  key={department}
+                  to={`/volunteers/${volunteer.id}`}
+                  className="flex items-center gap-3 rounded-xl border border-border p-3 transition-shadow hover:shadow-md"
                 >
-                  <img
-                    src={photo.url}
-                    alt={photo.eventName ?? "Event memory"}
-                    loading="lazy"
-                    className="size-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  {photo.eventName && (
-                    <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 to-transparent px-2 pt-6 pb-1.5 text-[0.65rem] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-                      {photo.eventName}
-                    </span>
-                  )}
-                </div>
+                  <Avatar className="size-12">
+                    {volunteer.photo_url && <AvatarImage src={volunteer.photo_url} />}
+                    <AvatarFallback className="bg-accent text-accent-foreground">
+                      {initials(volunteer.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {department}
+                    </p>
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {volunteer.full_name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {volunteer.shifts} shifts · {volunteer.evaluations} evaluations
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="gap-1">
+                    <Star className="size-3 fill-amber-400 text-amber-400" />
+                    {volunteer.average.toFixed(1)}
+                  </Badge>
+                </Link>
               ))}
             </div>
           </CardContent>
