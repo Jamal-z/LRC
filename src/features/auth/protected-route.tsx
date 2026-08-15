@@ -1,8 +1,9 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { useAuth } from "./auth-context"
+import { PendingApprovalPage } from "./pending-approval-page"
 
 export function ProtectedRoute() {
-  const { session, isLoading } = useAuth()
+  const { session, profile, isLoading } = useAuth()
   const location = useLocation()
 
   if (isLoading) {
@@ -15,6 +16,11 @@ export function ProtectedRoute() {
 
   if (!session) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />
+  }
+
+  // signed in, but an admin hasn't approved the account yet
+  if (profile && !profile.is_active) {
+    return <PendingApprovalPage />
   }
 
   return <Outlet />

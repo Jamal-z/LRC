@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Plus, ShieldCheck } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Check, Plus, ShieldCheck, UserRoundCheck, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,7 +36,14 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/features/auth/auth-context"
 import { useDepartments } from "@/features/departments/use-departments"
-import { useCreateUser, useDeleteUser, useUpdateUser, useUsers, type UserWithDepartments } from "./use-users"
+import {
+  useApproveUser,
+  useCreateUser,
+  useDeleteUser,
+  useUpdateUser,
+  useUsers,
+  type UserWithDepartments,
+} from "./use-users"
 import { ROLE_LABELS } from "@/lib/constants"
 import type { UserRole } from "@/types/database.types"
 
@@ -58,8 +65,31 @@ export function UsersPage() {
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
   const deleteUser = useDeleteUser()
+  const approveUser = useApproveUser()
 
   const isSuperAdmin = profile?.role === "super_admin"
+
+  // people who signed up themselves and are still waiting on us
+  const pending = useMemo(() => (users ?? []).filter((user) => !user.is_active), [users])
+  const [pendingRoles, setPendingRoles] = useState<Record<string, UserRole>>({})
+
+  async function handleApprove(user: UserWithDepartments) {
+    try {
+      await approveUser.mutateAsync({ id: user.id, role: pendingRoles[user.id] ?? user.role })
+      toast.success(`${user.full_name} approved`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to approve")
+    }
+  }
+
+  async function handleReject(user: UserWithDepartments) {
+    try {
+      await deleteUser.mutateAsync(user.id)
+      toast.success(`${user.full_name}'s request rejected`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reject")
+    }
+  }
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<UserWithDepartments | null>(null)
@@ -150,6 +180,84 @@ export function UsersPage() {
           Create User
         </Button>
       </div>
+
+      {/* approval queue — this replaces the confirmation email */}
+      {pending.length > 0 && (
+        <Card className="border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/[0.07]">
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <UserRoundCheck className="size-4 text-amber-600 dark:text-amber-400" />
+              <p className="text-sm font-semibold text-foreground">
+                {pending.length} account{pending.length > 1 ? "s" : ""} waiting for approval
+              </p>
+            </div>
+
+            {pending.map((user) => (
+              <div
+                key={user.id}
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3"
+              >
+                <Avatar className="size-9">
+                  <AvatarFallback className="bg-accent text-xs text-accent-foreground">
+                    {initials(user.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-foreground">{user.full_name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user.email} · asked for {ROLE_LABELS[user.role]}
+                  </p>
+                </div>
+
+                <Select
+                  value={pendingRoles[user.id] ?? user.role}
+                  // only a super admin may change a role (prevent_role_escalation)
+                  disabled={!isSuperAdmin}
+                  onValueChange={(value) =>
+                    setPendingRoles((prev) => ({
+                      ...prev,
+                      [user.id]: (value ?? user.role) as UserRole,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ROLE_LABELS) as UserRole[])
+                      .filter((r) => isSuperAdmin || (r !== "super_admin" && r !== "admin"))
+                      .map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleApprove(user)}
+                    disabled={approveUser.isPending}
+                  >
+                    <Check className="size-3.5" />
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleReject(user)}
+                    disabled={deleteUser.isPending}
+                  >
+                    <X className="size-3.5" />
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-0">

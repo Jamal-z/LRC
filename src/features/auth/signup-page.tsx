@@ -63,7 +63,8 @@ export function SignupPage() {
       return
     }
 
-    // When "Confirm email" is on in Supabase there is no session yet.
+    // With "Confirm email" off there is already a session, but the account is
+    // pending until an admin approves it — ProtectedRoute shows that screen.
     if (data.session) {
       navigate("/dashboard", { replace: true })
       return
@@ -90,10 +91,11 @@ export function SignupPage() {
               <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
                 <CheckCircle2 className="size-7" />
               </div>
-              <h2 className="text-2xl font-semibold text-white">Account created</h2>
+              <h2 className="text-2xl font-semibold text-white">Request sent</h2>
               <p className="text-sm text-blue-100/65">
-                Check your inbox to confirm your email, then sign in. Your access level is set by
-                the center administration.
+                The committee has been notified and will approve your account from Users &amp;
+                Roles. Once they do, sign in with the same email and password — your access level
+                is set by the center administration.
               </p>
               <Button
                 className="mt-2 h-11 w-full rounded-xl bg-sky-500 font-semibold text-white hover:bg-sky-400"

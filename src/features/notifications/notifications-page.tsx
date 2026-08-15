@@ -8,6 +8,7 @@ import {
   FileText,
   MessageSquareText,
   Package,
+  ShieldCheck,
   Trash2,
   UserX,
   Users,
@@ -70,6 +71,11 @@ const TYPE_META: Record<string, { icon: typeof Bell; tint: string; label: string
     icon: Users,
     tint: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
     label: "Assignment",
+  },
+  user_pending: {
+    icon: ShieldCheck,
+    tint: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    label: "Approval",
   },
   interview_accepted: {
     icon: MessageSquareText,

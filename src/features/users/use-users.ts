@@ -79,16 +79,19 @@ export function useCreateUser() {
         await new Promise((resolve) => setTimeout(resolve, 400))
       }
 
-      if (input.role === "super_admin" || input.role === "admin") {
-        const { error: roleError } = await supabase
-          .from("profiles")
-          .update({ role: input.role })
-          .eq("id", newUserId)
-        if (roleError) {
-          throw new Error(
-            `Account created as Department Leader, but promoting to ${input.role} failed: ${roleError.message}`
-          )
-        }
+      // Signups always land pending (see migration 016). An account an admin
+      // typed in here is approved by definition, so activate it right away.
+      const elevated = input.role === "super_admin" || input.role === "admin"
+      const { error: activateError } = await supabase
+        .from("profiles")
+        .update({ is_active: true, ...(elevated ? { role: input.role } : {}) })
+        .eq("id", newUserId)
+      if (activateError) {
+        throw new Error(
+          elevated
+            ? `Account created, but activating it as ${input.role} failed: ${activateError.message}`
+            : `Account created, but activating it failed: ${activateError.message}`
+        )
       }
 
       if (input.departmentIds.length) {
@@ -128,6 +131,24 @@ export function useDeleteUser() {
       queryClient.invalidateQueries({ queryKey: ["users"] })
       queryClient.invalidateQueries({ queryKey: ["profiles"] })
       queryClient.invalidateQueries({ queryKey: ["department-summaries"] })
+    },
+  })
+}
+
+/** Approve a signup so the person can actually get into the system. */
+export function useApproveUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, role }: { id: string; role?: UserRole }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active: true, ...(role ? { role } : {}) })
+        .eq("id", id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+      queryClient.invalidateQueries({ queryKey: ["profiles"] })
     },
   })
 }

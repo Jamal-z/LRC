@@ -105,14 +105,23 @@ export function LoginPage() {
 
     setIsSendingReset(true)
 
+    // Prefer the deployed address: window.location.origin is localhost while
+    // developing, and the emailed link would then be useless to the recipient.
+    // Supabase only honours this if the URL is in its Redirect URLs allowlist.
+    const appUrl = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/+$/, "")
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${appUrl}/reset-password`,
     })
 
     setIsSendingReset(false)
 
     if (error) {
-      setResetError(error.message)
+      setResetError(
+        /rate limit/i.test(error.message)
+          ? "Supabase's built-in email service allows about 2 emails per hour. Wait a few minutes, or set up a custom SMTP provider."
+          : error.message
+      )
       return
     }
 

@@ -78,6 +78,8 @@ export function notificationLink(notification: NotificationRow): string | null {
       return "/evaluations"
     case "interview":
       return "/interviews"
+    case "user":
+      return "/users"
     default:
       return null
   }

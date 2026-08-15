@@ -30,7 +30,8 @@
       "PowerShell(npm run build)",
       "PowerShell($f = \"C:\\\\Users\\\\mt2x.com\\\\OneDrive\\\\Desktop\\\\LRCweb\\\\public\\\\media\\\\dashboard-hero.mp4\"; $s = New-Object -ComObject Shell.Application; $folder = $s.Namespace\\(\\(Split-Path $f\\)\\); $item = $folder.ParseName\\(\\(Split-Path $f -Leaf\\)\\); 0..320 | ForEach-Object { $n = $folder.GetDetailsOf\\($null, $_\\); $v = $folder.GetDetailsOf\\($item, $_\\); if \\($v -and \\($n -match 'Width|Height|Length|Frame|Dimen'\\)\\) { \"$n = $v\" } })",
       "PowerShell($f = \"C:\\\\Users\\\\mt2x.com\\\\OneDrive\\\\Desktop\\\\LRCweb\\\\public\\\\media\\\\dashboard-hero.mp4\"; $s = New-Object -ComObject Shell.Application; $folder = $s.Namespace\\(\\(Split-Path $f\\)\\); $item = $folder.ParseName\\(\\(Split-Path $f -Leaf\\)\\); 0..320 | ForEach-Object { $n = $folder.GetDetailsOf\\($null, $_\\); $v = $folder.GetDetailsOf\\($item, $_\\); if \\($v\\) { \"[$_] $n = $v\" } })",
-      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\Downloads\" -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match '\\\\.\\(png|jpg|jpeg|svg|webp\\)$' } | Sort-Object LastWriteTime -Descending | Select-Object -First 12 Name, Length, LastWriteTime | Format-Table -AutoSize)"
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\Downloads\" -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match '\\\\.\\(png|jpg|jpeg|svg|webp\\)$' } | Sort-Object LastWriteTime -Descending | Select-Object -First 12 Name, Length, LastWriteTime | Format-Table -AutoSize)",
+      "WebFetch(domain:supabase.com)"
     ]
   }
 }

@@ -12,10 +12,11 @@
 
 Two environment variables are **baked into the JavaScript at build time**:
 
-| Variable                 | Purpose                                   |
-| ------------------------ | ----------------------------------------- |
-| `VITE_SUPABASE_URL`      | Supabase project URL                      |
-| `VITE_SUPABASE_ANON_KEY` | Supabase public anon key (RLS-protected)  |
+| Variable                 | Purpose                                                        |
+| ------------------------ | -------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`      | Supabase project URL                                           |
+| `VITE_SUPABASE_ANON_KEY` | Supabase public anon key (RLS-protected)                       |
+| `VITE_APP_URL`           | Public address of this deployment; password-reset emails link here |
 
 Because they are inlined at build time, **the build must run on the server after
 `.env.production` exists** — `deploy.sh` handles this ordering for you.
