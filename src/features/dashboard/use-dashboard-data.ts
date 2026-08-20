@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
+import { evaluationAverage } from "@/features/evaluations/use-evaluations"
+import type { EvaluationPhase } from "@/types/database.types"
 
 export interface DepartmentCount {
   id: string
@@ -113,7 +115,7 @@ export function useDashboardData() {
         supabase
           .from("event_evaluations")
           .select(
-            "volunteer_id, shifts_count, meeting_attendance_rating, performance_rating, teamwork_rating, communication_rating"
+            "volunteer_id, phase, department_id, shifts_count, meeting_attendance_rating, task_completion_rating, performance_rating, teamwork_rating, communication_rating, attitude_rating, commitment_rating"
           ),
         supabase
           .from("event_photos")
@@ -156,11 +158,16 @@ export function useDashboardData() {
       // aggregate every evaluation per volunteer for the leaderboard
       const evaluations = (evaluationsRes.data ?? []) as {
         volunteer_id: string
+        phase: EvaluationPhase
+        department_id: string | null
         shifts_count: number | null
         meeting_attendance_rating: number | null
+        task_completion_rating: number | null
         performance_rating: number | null
         teamwork_rating: number | null
         communication_rating: number | null
+        attitude_rating: number | null
+        commitment_rating: number | null
       }[]
 
       const statsByVolunteer = new Map<
@@ -168,18 +175,15 @@ export function useDashboardData() {
         { ratingSum: number; ratingCount: number; shifts: number; evaluations: number }
       >()
       for (const evaluation of evaluations) {
-        const scores = [
-          evaluation.meeting_attendance_rating,
-          evaluation.performance_rating,
-          evaluation.teamwork_rating,
-          evaluation.communication_rating,
-        ].filter((v): v is number => v != null)
+        // phase-aware: a preparation row must not be scored against the
+        // post-event criteria it deliberately leaves empty
+        const rowAverage = evaluationAverage(evaluation)
 
         const entry =
           statsByVolunteer.get(evaluation.volunteer_id) ??
           { ratingSum: 0, ratingCount: 0, shifts: 0, evaluations: 0 }
-        if (scores.length) {
-          entry.ratingSum += scores.reduce((a, b) => a + b, 0) / scores.length
+        if (rowAverage != null) {
+          entry.ratingSum += rowAverage
           entry.ratingCount++
         }
         entry.shifts += evaluation.shifts_count ?? 0

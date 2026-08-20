@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import type {
+  EvaluationPhase,
   EventBoothRow,
   EventInsert,
   EventRow,
@@ -58,12 +59,15 @@ export interface EventEvalWithDetails {
   department_id: string | null
   volunteer_id: string
   evaluated_by: string
+  phase: EvaluationPhase
   meeting_attendance_rating: number | null
+  task_completion_rating: number | null
   shifts_count: number
   performance_rating: number | null
   commitment_rating: number | null
   teamwork_rating: number | null
   communication_rating: number | null
+  attitude_rating: number | null
   notes: string | null
   recommend_for_future_events: boolean | null
   potential_future_booth_leader: boolean | null

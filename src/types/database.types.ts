@@ -242,6 +242,9 @@ export type EventParticipantInsert = Partial<Omit<EventParticipantRow, "total_ho
   Pick<EventParticipantRow, "event_id" | "volunteer_id">
 export type EventParticipantUpdate = Partial<Omit<EventParticipantRow, "total_hours">>
 
+/** Booth evaluations are filled twice: once while preparing, once after the event. */
+export type EvaluationPhase = "preparation" | "post_event"
+
 export type EventEvaluationRow = {
   id: string
   event_id: string
@@ -249,11 +252,14 @@ export type EventEvaluationRow = {
   department_id: string | null
   volunteer_id: string
   evaluated_by: string
+  phase: EvaluationPhase
   meeting_attendance_rating: number | null
+  task_completion_rating: number | null
   shifts_count: number
   performance_rating: number | null
   teamwork_rating: number | null
   communication_rating: number | null
+  attitude_rating: number | null
   commitment_rating: number | null
   notes: string | null
   suggested_tags: string[]

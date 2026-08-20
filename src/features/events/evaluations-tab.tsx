@@ -23,6 +23,7 @@ import {
   type EventEvalWithDetails,
   type ParticipantWithDetails,
 } from "./use-events"
+import { PHASES, evaluationAverage } from "@/features/evaluations/use-evaluations"
 import { cn } from "@/lib/utils"
 
 function StarRating({
@@ -50,14 +51,10 @@ function StarRating({
   )
 }
 
+/** Only averages the criteria the row's own phase actually fills in. */
 function volunteerAverage(evaluation: EventEvalWithDetails) {
-  const values = [
-    evaluation.meeting_attendance_rating,
-    evaluation.performance_rating,
-    evaluation.teamwork_rating,
-    evaluation.communication_rating,
-  ].filter((v): v is number => v != null)
-  return values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : null
+  const average = evaluationAverage(evaluation)
+  return average == null ? null : average.toFixed(1)
 }
 
 /**
@@ -132,6 +129,8 @@ export function EvaluationsTab({
   }
 
   const totalShifts = evaluations.reduce((sum, ev) => sum + (ev.shifts_count ?? 0), 0)
+  // booths file one row per phase, so counting rows would overstate the progress
+  const evaluatedVolunteers = new Set(evaluations.map((ev) => ev.volunteer_id)).size
 
   return (
     <div className="flex flex-col gap-4">
@@ -140,7 +139,8 @@ export function EvaluationsTab({
           <div>
             <p className="text-sm font-semibold text-foreground">Volunteer evaluations</p>
             <p className="text-sm text-muted-foreground">
-              {evaluations.length} of {participants.length} evaluated · {totalShifts} shifts recorded
+              {evaluatedVolunteers} of {participants.length} evaluated · {totalShifts} shifts
+              recorded
             </p>
           </div>
           <Button render={<Link to={`/evaluations/${eventId}`} />}>
@@ -205,7 +205,9 @@ export function EvaluationsTab({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">All volunteer evaluations ({evaluations.length})</CardTitle>
+          <CardTitle className="text-base">
+            All volunteer evaluations ({evaluations.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {evaluations.length === 0 ? (
@@ -234,9 +236,16 @@ export function EvaluationsTab({
                       )}
                     </p>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {evaluation.shifts_count ?? 0} shifts
-                      </Badge>
+                      {evaluation.booth_id && (
+                        <Badge variant="outline" className="text-xs">
+                          {PHASES.find((p) => p.key === evaluation.phase)?.label ?? evaluation.phase}
+                        </Badge>
+                      )}
+                      {evaluation.phase !== "preparation" && (
+                        <Badge variant="outline" className="text-xs">
+                          {evaluation.shifts_count ?? 0} shifts
+                        </Badge>
+                      )}
                       {volunteerAverage(evaluation) && (
                         <Badge variant="secondary" className="gap-1">
                           <Star className="size-3 fill-amber-400 text-amber-400" />

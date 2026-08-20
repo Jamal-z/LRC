@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
+import { evaluationAverage } from "@/features/evaluations/use-evaluations"
+import type { EvaluationPhase } from "@/types/database.types"
+
+export { evaluationAverage }
 
 export interface ParticipationEntry {
   id: string
@@ -12,10 +16,15 @@ export interface ParticipationEntry {
 
 export interface VolunteerEvaluationEntry {
   id: string
+  phase: EvaluationPhase
+  department_id: string | null
   meeting_attendance_rating: number | null
+  task_completion_rating: number | null
   performance_rating: number | null
   teamwork_rating: number | null
   communication_rating: number | null
+  attitude_rating: number | null
+  commitment_rating: number | null
   shifts_count: number
   notes: string | null
   potential_future_booth_leader: boolean | null
@@ -26,21 +35,6 @@ export interface VolunteerEvaluationEntry {
   event_booths: { id: string; name: string } | null
   departments: { id: string; name: string } | null
   profiles: { full_name: string } | null
-}
-
-export function evaluationAverage(evaluation: {
-  meeting_attendance_rating: number | null
-  performance_rating: number | null
-  teamwork_rating: number | null
-  communication_rating: number | null
-}) {
-  const values = [
-    evaluation.meeting_attendance_rating,
-    evaluation.performance_rating,
-    evaluation.teamwork_rating,
-    evaluation.communication_rating,
-  ].filter((v): v is number => v != null)
-  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
 }
 
 export function useVolunteerHistory(volunteerId: string | undefined) {
@@ -57,7 +51,7 @@ export function useVolunteerHistory(volunteerId: string | undefined) {
         supabase
           .from("event_evaluations")
           .select(
-            "id, meeting_attendance_rating, performance_rating, teamwork_rating, communication_rating, shifts_count, notes, potential_future_booth_leader, is_talented, needs_follow_up, created_at, events (id, name, date), event_booths:booth_id (id, name), departments:department_id (id, name), profiles:evaluated_by (full_name)"
+            "id, phase, department_id, meeting_attendance_rating, task_completion_rating, performance_rating, teamwork_rating, communication_rating, attitude_rating, commitment_rating, shifts_count, notes, potential_future_booth_leader, is_talented, needs_follow_up, created_at, events (id, name, date), event_booths:booth_id (id, name), departments:department_id (id, name), profiles:evaluated_by (full_name)"
           )
           .eq("volunteer_id", volunteerId!)
           .order("created_at", { ascending: false }),

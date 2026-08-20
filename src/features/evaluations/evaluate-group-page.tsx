@@ -15,14 +15,16 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   EVALUATION_FLAGS,
-  RATING_CRITERIA,
+  PHASES,
+  criteriaFor,
   evaluationAverage,
   useEvaluationTargets,
   useSaveEvaluation,
-  type EvaluationTarget,
   type FlagKey,
+  type PhaseEntry,
   type RatingKey,
 } from "./use-evaluations"
+import type { EvaluationPhase } from "@/types/database.types"
 import { cn } from "@/lib/utils"
 
 function initials(name: string) {
@@ -67,19 +69,15 @@ const FLAG_ICONS: Record<FlagKey, typeof Sparkles> = {
 }
 
 interface DraftState {
-  ratings: Record<RatingKey, number | null>
+  /** only the keys belonging to the active phase are ever populated */
+  ratings: Partial<Record<RatingKey, number | null>>
   shifts: string
   notes: string
   flags: Record<FlagKey, boolean>
 }
 
 const EMPTY_DRAFT: DraftState = {
-  ratings: {
-    meeting_attendance_rating: null,
-    performance_rating: null,
-    teamwork_rating: null,
-    communication_rating: null,
-  },
+  ratings: {},
   shifts: "0",
   notes: "",
   flags: {
@@ -89,16 +87,21 @@ const EMPTY_DRAFT: DraftState = {
   },
 }
 
-function draftFrom(target: EvaluationTarget | null): DraftState {
-  if (!target?.evaluation) return EMPTY_DRAFT
-  const evaluation = target.evaluation
+function draftFrom(
+  entry: PhaseEntry | null,
+  phase: EvaluationPhase,
+  isDepartment: boolean
+): DraftState {
+  const evaluation = entry?.evaluation
+  if (!evaluation) return EMPTY_DRAFT
+
+  const ratings: Partial<Record<RatingKey, number | null>> = {}
+  for (const criterion of criteriaFor(phase, isDepartment)) {
+    ratings[criterion.key] = evaluation[criterion.key] ?? null
+  }
+
   return {
-    ratings: {
-      meeting_attendance_rating: evaluation.meeting_attendance_rating,
-      performance_rating: evaluation.performance_rating,
-      teamwork_rating: evaluation.teamwork_rating,
-      communication_rating: evaluation.communication_rating,
-    },
+    ratings,
     shifts: String(evaluation.shifts_count ?? 0),
     notes: evaluation.notes ?? "",
     flags: {
@@ -120,23 +123,35 @@ export function EvaluateGroupPage() {
   const saveEvaluation = useSaveEvaluation()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // teams are evaluated once, after the event — only booths run two phases
+  const [phase, setPhase] = useState<EvaluationPhase>("preparation")
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT)
   const [notesError, setNotesError] = useState<string | null>(null)
 
+  const isPhased = type === "booth"
+  const isDepartment = type === "department"
+  const activePhase: EvaluationPhase = isPhased ? phase : "post_event"
+  const phaseConfig = PHASES.find((p) => p.key === activePhase)!
+  const activeCriteria = criteriaFor(activePhase, isDepartment)
+
   const targets = useMemo(() => data?.targets ?? [], [data?.targets])
   const selected = targets.find((t) => t.volunteerId === selectedId) ?? null
+  const selectedEntry = selected?.phases[activePhase] ?? null
 
   // leaders jump to the first unscored volunteer; reviewers start at the top
   useEffect(() => {
     if (selectedId || !targets.length) return
-    const next = isReviewer ? targets[0] : (targets.find((t) => !t.evaluation) ?? targets[0])
+    const next = isReviewer
+      ? targets[0]
+      : (targets.find((t) => !t.phases[activePhase].evaluation) ?? targets[0])
     setSelectedId(next.volunteerId)
-  }, [targets, selectedId, isReviewer])
+  }, [targets, selectedId, isReviewer, activePhase])
 
+  // reload the form whenever the volunteer OR the phase changes
   useEffect(() => {
-    setDraft(draftFrom(selected))
+    setDraft(draftFrom(selectedEntry, activePhase, isDepartment))
     setNotesError(null)
-  }, [selected])
+  }, [selectedEntry, activePhase, isDepartment])
 
   if (isLoading || !data) {
     return (
@@ -155,29 +170,50 @@ export function EvaluateGroupPage() {
       return
     }
 
+    // Only send the columns this phase owns; the other phase's columns stay
+    // untouched on their own row instead of being overwritten with nulls.
+    const ratings = activeCriteria.reduce<Record<string, number | null>>(
+      (acc, criterion) => {
+        acc[criterion.key] = draft.ratings[criterion.key] ?? null
+        return acc
+      },
+      {}
+    )
+
     try {
       await saveEvaluation.mutateAsync({
-        id: selected.evaluation?.id,
+        id: selectedEntry?.evaluation?.id,
         event_id: eventId,
         booth_id: type === "booth" ? groupId! : null,
         department_id: type === "department" ? groupId! : null,
         volunteer_id: selected.volunteerId,
         evaluated_by: profile.id,
-        meeting_attendance_rating: draft.ratings.meeting_attendance_rating,
-        performance_rating: draft.ratings.performance_rating,
-        teamwork_rating: draft.ratings.teamwork_rating,
-        communication_rating: draft.ratings.communication_rating,
-        shifts_count: Number(draft.shifts) || 0,
+        phase: activePhase,
+        meeting_attendance_rating: null,
+        task_completion_rating: null,
+        performance_rating: null,
+        teamwork_rating: null,
+        communication_rating: null,
+        attitude_rating: null,
+        commitment_rating: null,
+        ...ratings,
+        shifts_count: phaseConfig.hasShifts ? Number(draft.shifts) || 0 : 0,
         notes: draft.notes.trim(),
-        potential_future_booth_leader: draft.flags.potential_future_booth_leader,
-        is_talented: draft.flags.is_talented,
-        needs_follow_up: draft.flags.needs_follow_up,
+        potential_future_booth_leader: phaseConfig.hasFlags
+          ? draft.flags.potential_future_booth_leader
+          : false,
+        is_talented: phaseConfig.hasFlags ? draft.flags.is_talented : false,
+        needs_follow_up: phaseConfig.hasFlags ? draft.flags.needs_follow_up : false,
       })
-      toast.success(`Saved evaluation for ${selected.fullName}`)
+      toast.success(
+        isPhased
+          ? `Saved ${phaseConfig.label.toLowerCase()} evaluation for ${selected.fullName}`
+          : `Saved evaluation for ${selected.fullName}`
+      )
 
-      // jump to the next unevaluated volunteer to keep the flow going
+      // jump to the next volunteer missing THIS phase to keep the flow going
       const remaining = targets.filter(
-        (t) => t.volunteerId !== selected.volunteerId && !t.evaluation
+        (t) => t.volunteerId !== selected.volunteerId && !t.phases[activePhase].evaluation
       )
       if (remaining.length) setSelectedId(remaining[0].volunteerId)
     } catch (error) {
@@ -185,7 +221,7 @@ export function EvaluateGroupPage() {
     }
   }
 
-  const doneCount = targets.filter((t) => t.evaluation).length
+  const doneCount = targets.filter((t) => t.phases[activePhase].evaluation).length
 
   return (
     <div className="flex flex-col gap-4">
@@ -203,10 +239,44 @@ export function EvaluateGroupPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             {doneCount} of {targets.length} volunteers evaluated
+            {isPhased && ` in ${phaseConfig.label.toLowerCase()}`}
             {isReviewer && " · you're reviewing what the leaders submitted"}
           </p>
         </div>
       </div>
+
+      {isPhased && (
+        <div className="flex w-full gap-1 rounded-xl border border-border bg-muted/40 p-1 sm:w-fit">
+          {PHASES.map((option) => {
+            const active = option.key === activePhase
+            const filled = targets.filter((t) => t.phases[option.key].evaluation).length
+            return (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setPhase(option.key)}
+                className={cn(
+                  "flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none",
+                  active
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {option.label}{" "}
+                <span className="text-xs font-normal opacity-70">({option.parenthetical})</span>
+                <span
+                  className={cn(
+                    "ml-2 rounded-full px-1.5 py-0.5 text-xs tabular-nums",
+                    active ? "bg-accent text-accent-foreground" : "bg-transparent"
+                  )}
+                >
+                  {filled}/{targets.length}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {targets.length === 0 ? (
         <Card>
@@ -226,7 +296,8 @@ export function EvaluateGroupPage() {
             </CardHeader>
             <CardContent className="flex flex-col gap-1 p-2">
               {targets.map((target) => {
-                const average = target.evaluation ? evaluationAverage(target.evaluation) : null
+                const entry = target.phases[activePhase]
+                const average = entry.evaluation ? evaluationAverage(entry.evaluation) : null
                 const active = target.volunteerId === selectedId
 
                 return (
@@ -254,18 +325,44 @@ export function EvaluateGroupPage() {
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{target.fullName}</p>
-                      <p
-                        className={cn(
-                          "truncate text-xs",
-                          active ? "text-primary-foreground/70" : "text-muted-foreground"
-                        )}
-                      >
-                        {target.evaluation
-                          ? `${target.evaluation.shifts_count} shifts${
-                              target.evaluatedByName ? ` · by ${target.evaluatedByName}` : ""
-                            }`
-                          : "Not evaluated"}
-                      </p>
+                      {isPhased ? (
+                        // both phases at a glance, so a leader can see what is still missing
+                        <div className="mt-0.5 flex items-center gap-1">
+                          {PHASES.map((option) => {
+                            const filled = !!target.phases[option.key].evaluation
+                            return (
+                              <span
+                                key={option.key}
+                                className={cn(
+                                  "rounded px-1 py-0.5 text-[10px] font-medium leading-none",
+                                  active
+                                    ? filled
+                                      ? "bg-primary-foreground/25 text-primary-foreground"
+                                      : "text-primary-foreground/60"
+                                    : filled
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                      : "text-muted-foreground"
+                                )}
+                              >
+                                {option.shortLabel} {filled ? "✓" : "—"}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p
+                          className={cn(
+                            "truncate text-xs",
+                            active ? "text-primary-foreground/70" : "text-muted-foreground"
+                          )}
+                        >
+                          {entry.evaluation
+                            ? `${entry.evaluation.shifts_count} shifts${
+                                entry.evaluatedByName ? ` · by ${entry.evaluatedByName}` : ""
+                              }`
+                            : "Not evaluated"}
+                        </p>
+                      )}
                     </div>
                     {average != null ? (
                       <span
@@ -312,11 +409,11 @@ export function EvaluateGroupPage() {
                     )}
                   </div>
                 </div>
-                {selected.evaluation ? (
-                  selected.evaluatedByName ? (
+                {selectedEntry?.evaluation ? (
+                  selectedEntry.evaluatedByName ? (
                     <Badge className="gap-1 bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
                       <CheckCircle2 className="size-3" />
-                      Evaluated by {selected.evaluatedByName}
+                      Evaluated by {selectedEntry.evaluatedByName}
                     </Badge>
                   ) : (
                     <Badge className="gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
@@ -334,7 +431,8 @@ export function EvaluateGroupPage() {
               </CardHeader>
 
               <CardContent className="flex flex-col gap-6">
-                {/* shifts */}
+                {/* shifts — post-event only, there is nothing to count beforehand */}
+                {phaseConfig.hasShifts && (
                 <Field>
                   <FieldLabel htmlFor="ev-shifts">Shifts covered in this event</FieldLabel>
                   <Input
@@ -349,14 +447,15 @@ export function EvaluateGroupPage() {
                     How many shifts they actually covered — counted, not rated.
                   </FieldDescription>
                 </Field>
+                )}
 
                 {/* ratings */}
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  {RATING_CRITERIA.map((criterion) => (
+                  {activeCriteria.map((criterion) => (
                     <Field key={criterion.key}>
                       <FieldLabel>{criterion.label}</FieldLabel>
                       <StarPicker
-                        value={draft.ratings[criterion.key]}
+                        value={draft.ratings[criterion.key] ?? null}
                         onChange={(value) =>
                           setDraft((prev) => ({
                             ...prev,
@@ -369,7 +468,8 @@ export function EvaluateGroupPage() {
                   ))}
                 </div>
 
-                {/* flags */}
+                {/* flags — post-event only, these are judgements about the day */}
+                {phaseConfig.hasFlags && (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {EVALUATION_FLAGS.map((flag) => {
                     const Icon = FLAG_ICONS[flag.key]
@@ -406,6 +506,7 @@ export function EvaluateGroupPage() {
                     )
                   })}
                 </div>
+                )}
 
                 {/* notes */}
                 <Field data-invalid={!!notesError}>
@@ -431,11 +532,17 @@ export function EvaluateGroupPage() {
                   <Button size="lg" onClick={handleSave} disabled={saveEvaluation.isPending}>
                     {saveEvaluation.isPending
                       ? "Saving…"
-                      : selected.evaluatedByName
+                      : selectedEntry?.evaluatedByName
                         ? "Save correction"
-                        : selected.evaluation
-                          ? "Update evaluation"
-                          : "Save evaluation"}
+                        : selectedEntry?.evaluation
+                          ? `Update ${isPhased ? phaseConfig.label.toLowerCase() : ""} evaluation`.replace(
+                              "  ",
+                              " "
+                            )
+                          : `Save ${isPhased ? phaseConfig.label.toLowerCase() : ""} evaluation`.replace(
+                              "  ",
+                              " "
+                            )}
                   </Button>
                 </div>
               </CardContent>

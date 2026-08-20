@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Pencil, Plus, Store, Trash2, UserCog } from "lucide-react"
+import { Pencil, Plus, Search, Store, Trash2, UserCog } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -49,6 +49,28 @@ export function BoothsTab({
   const [leadersOpen, setLeadersOpen] = useState(false)
   const [leadersBooth, setLeadersBooth] = useState<BoothWithDetails | null>(null)
   const [selectedLeaderIds, setSelectedLeaderIds] = useState<string[]>([])
+  const [leaderSearch, setLeaderSearch] = useState("")
+
+  // Alphabetical by name, with the people already assigned pinned to the top so
+  // a search that hides them can never make them look un-assigned.
+  const visibleLeaderOptions = useMemo(() => {
+    const query = leaderSearch.trim().toLowerCase()
+    return users
+      .filter((user) => {
+        if (!query) return true
+        if (selectedLeaderIds.includes(user.id)) return true
+        return (
+          user.full_name.toLowerCase().includes(query) ||
+          (user.email ?? "").toLowerCase().includes(query)
+        )
+      })
+      .sort((a, b) => {
+        const aPicked = selectedLeaderIds.includes(a.id)
+        const bPicked = selectedLeaderIds.includes(b.id)
+        if (aPicked !== bPicked) return aPicked ? -1 : 1
+        return a.full_name.localeCompare(b.full_name)
+      })
+  }, [users, leaderSearch, selectedLeaderIds])
 
   function openAdd(suggestion?: string) {
     setEditing(null)
@@ -100,6 +122,7 @@ export function BoothsTab({
   function openLeaders(booth: BoothWithDetails) {
     setLeadersBooth(booth)
     setSelectedLeaderIds(booth.booth_leaders.map((bl) => bl.user_id))
+    setLeaderSearch("")
     setLeadersOpen(true)
   }
 
@@ -287,25 +310,46 @@ export function BoothsTab({
               Booth leaders can see and evaluate only the volunteers assigned to this booth.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-lg border border-border p-2">
-            {users.map((user) => (
-              <label
-                key={user.id}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
-              >
-                <Checkbox
-                  checked={selectedLeaderIds.includes(user.id)}
-                  onCheckedChange={(checked) =>
-                    setSelectedLeaderIds((prev) =>
-                      checked ? [...prev, user.id] : prev.filter((id) => id !== user.id)
-                    )
-                  }
-                />
-                <span className="flex-1">{user.full_name}</span>
-                <span className="text-xs text-muted-foreground">{user.email}</span>
-              </label>
-            ))}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              autoFocus
+              placeholder="Search by name or email…"
+              className="pl-9"
+              value={leaderSearch}
+              onChange={(e) => setLeaderSearch(e.target.value)}
+            />
           </div>
+
+          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-lg border border-border p-2">
+            {visibleLeaderOptions.length === 0 ? (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                No one matches “{leaderSearch}”.
+              </p>
+            ) : (
+              visibleLeaderOptions.map((user) => (
+                <label
+                  key={user.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+                >
+                  <Checkbox
+                    checked={selectedLeaderIds.includes(user.id)}
+                    onCheckedChange={(checked) =>
+                      setSelectedLeaderIds((prev) =>
+                        checked ? [...prev, user.id] : prev.filter((id) => id !== user.id)
+                      )
+                    }
+                  />
+                  <span className="flex-1">{user.full_name}</span>
+                  <span className="text-xs text-muted-foreground">{user.email}</span>
+                </label>
+              ))
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {selectedLeaderIds.length} selected · {users.length} people available
+          </p>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setLeadersOpen(false)}>
               Cancel

@@ -1,9 +1,85 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
-import type { EventEvaluationRow, EventStatus } from "@/types/database.types"
+import type {
+  EvaluationPhase,
+  EventEvaluationRow,
+  EventStatus,
+} from "@/types/database.types"
 
-/** The five things a volunteer is scored on for an event. */
-export const RATING_CRITERIA = [
+/**
+ * Booth evaluations run in two phases. Communication appears in both on
+ * purpose — communicating while preparing is a different skill from handling
+ * visitors on the day, so each phase scores it separately.
+ */
+export const PREPARATION_CRITERIA = [
+  {
+    key: "meeting_attendance_rating",
+    label: "Meeting attendance",
+    hint: "Attendance and punctuality at the preparation meetings",
+  },
+  {
+    key: "task_completion_rating",
+    label: "Task completion",
+    hint: "Finished the tasks they were given before the event",
+  },
+  {
+    key: "communication_rating",
+    label: "Communication",
+    hint: "Responsiveness with the leader and the team while preparing",
+  },
+] as const
+
+export const POST_EVENT_CRITERIA = [
+  {
+    key: "performance_rating",
+    label: "Performance at the event",
+    hint: "Quality of the work they did on the day",
+  },
+  { key: "teamwork_rating", label: "Teamwork", hint: "Working with the rest of the team" },
+  {
+    key: "communication_rating",
+    label: "Communication",
+    hint: "With visitors and with the team during the event",
+  },
+  {
+    key: "attitude_rating",
+    label: "Attitude with people",
+    hint: "How respectfully they dealt with volunteers and students",
+  },
+  {
+    key: "commitment_rating",
+    label: "Punctuality",
+    hint: "Arrived on time and stuck to the agreed shift times",
+  },
+] as const
+
+export const PHASES = [
+  {
+    key: "preparation",
+    label: "Preparation",
+    shortLabel: "Prep",
+    parenthetical: "Before",
+    criteria: PREPARATION_CRITERIA,
+    /** shifts and the talent flags only make sense once the event has happened */
+    hasShifts: false,
+    hasFlags: false,
+  },
+  {
+    key: "post_event",
+    label: "Post-event",
+    shortLabel: "Post",
+    parenthetical: "After",
+    criteria: POST_EVENT_CRITERIA,
+    hasShifts: true,
+    hasFlags: true,
+  },
+] as const
+
+/**
+ * Department teams are evaluated once for an event, not in phases, and keep the
+ * original criteria — the before/after split is a booth-only change.
+ */
+export const DEPARTMENT_CRITERIA = [
   {
     key: "meeting_attendance_rating",
     label: "Meeting attendance",
@@ -22,9 +98,20 @@ export const RATING_CRITERIA = [
   },
 ] as const
 
-export type RatingKey = (typeof RATING_CRITERIA)[number]["key"]
+export type RatingKey =
+  | (typeof PREPARATION_CRITERIA)[number]["key"]
+  | (typeof POST_EVENT_CRITERIA)[number]["key"]
+  | (typeof DEPARTMENT_CRITERIA)[number]["key"]
 
-/** Yes/no flags recorded alongside the ratings. */
+export function criteriaFor(
+  phase: EvaluationPhase,
+  isDepartment = false
+): readonly { readonly key: RatingKey; readonly label: string; readonly hint: string }[] {
+  if (isDepartment) return DEPARTMENT_CRITERIA
+  return phase === "preparation" ? PREPARATION_CRITERIA : POST_EVENT_CRITERIA
+}
+
+/** Yes/no flags recorded alongside the ratings. Post-event only. */
 export const EVALUATION_FLAGS = [
   {
     key: "potential_future_booth_leader",
@@ -48,18 +135,19 @@ export const EVALUATION_FLAGS = [
 
 export type FlagKey = (typeof EVALUATION_FLAGS)[number]["key"]
 
-export function evaluationAverage(evaluation: {
-  meeting_attendance_rating: number | null
-  performance_rating: number | null
-  teamwork_rating: number | null
-  communication_rating: number | null
-}) {
-  const values = [
-    evaluation.meeting_attendance_rating,
-    evaluation.performance_rating,
-    evaluation.teamwork_rating,
-    evaluation.communication_rating,
-  ].filter((v): v is number => v != null)
+/**
+ * Averages only the criteria that belong to the row's own phase, so a
+ * preparation row is not dragged down by the post-event columns it never fills.
+ */
+export function evaluationAverage(
+  evaluation: Partial<Record<RatingKey, number | null>> & {
+    phase?: EvaluationPhase
+    department_id?: string | null
+  }
+) {
+  const values = criteriaFor(evaluation.phase ?? "post_event", !!evaluation.department_id)
+    .map((criterion) => evaluation[criterion.key])
+    .filter((v): v is number => v != null)
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
 }
 
@@ -83,7 +171,7 @@ export function useEvaluationEvents() {
       const { data, error } = await supabase
         .from("events")
         .select(
-          "id, name, date, status, event_booths (id), event_participants (id), event_evaluations (id)"
+          "id, name, date, status, event_booths (id), event_participants (id), event_evaluations (volunteer_id)"
         )
         .order("date", { ascending: false })
       if (error) throw error
@@ -95,7 +183,7 @@ export function useEvaluationEvents() {
         status: EventStatus
         event_booths: { id: string }[]
         event_participants: { id: string }[]
-        event_evaluations: { id: string }[]
+        event_evaluations: { volunteer_id: string }[]
       }[]).map((event) => ({
         id: event.id,
         name: event.name,
@@ -103,7 +191,8 @@ export function useEvaluationEvents() {
         status: event.status,
         boothCount: event.event_booths.length,
         participantCount: event.event_participants.length,
-        evaluationCount: event.event_evaluations.length,
+        // a booth volunteer files one row per phase, so count people not rows
+        evaluationCount: new Set(event.event_evaluations.map((e) => e.volunteer_id)).size,
       }))
     },
   })
@@ -117,7 +206,10 @@ export interface EvaluationGroup {
   id: string
   name: string
   participantCount: number
+  /** overall progress: for booths a volunteer counts only once BOTH phases are in */
   evaluatedCount: number
+  /** how many volunteers have that phase on record (booths show both bars) */
+  phaseCounts: Record<EvaluationPhase, number>
   leaderNames: string[]
 }
 
@@ -139,7 +231,7 @@ export function useEvaluationGroups(eventId: string | undefined, evaluatorId: st
             .eq("event_id", eventId!),
           supabase
             .from("event_evaluations")
-            .select("id, volunteer_id, booth_id, department_id, evaluated_by")
+            .select("id, volunteer_id, booth_id, department_id, evaluated_by, phase")
             .eq("event_id", eventId!),
           supabase
             .from("event_departments")
@@ -165,7 +257,16 @@ export function useEvaluationGroups(eventId: string | undefined, evaluatorId: st
         booth_id: string | null
         department_id: string | null
         evaluated_by: string
+        phase: EvaluationPhase
       }[]
+
+      /** volunteers with `phase` recorded for this group, whoever submitted it */
+      function volunteersWithPhase(
+        rows: typeof evaluations,
+        phase: EvaluationPhase
+      ): Set<string> {
+        return new Set(rows.filter((e) => e.phase === phase).map((e) => e.volunteer_id))
+      }
 
       // department_id -> how many volunteers belong to that team
       const teamSizes = new Map<string, number>()
@@ -184,10 +285,17 @@ export function useEvaluationGroups(eventId: string | undefined, evaluatorId: st
         leaderIds: booth.booth_leaders.map((bl) => bl.user_id),
         leaderNames: booth.booth_leaders.map((bl) => bl.profiles?.full_name ?? "—"),
         participantCount: participants.filter((p) => p.booth_id === booth.id).length,
-        // progress counts every evaluation, whoever submitted it
-        evaluatedCount: new Set(
-          evaluations.filter((e) => e.booth_id === booth.id).map((e) => e.volunteer_id)
-        ).size,
+        ...(() => {
+          // progress counts every evaluation, whoever submitted it
+          const mine = evaluations.filter((e) => e.booth_id === booth.id)
+          const prep = volunteersWithPhase(mine, "preparation")
+          const post = volunteersWithPhase(mine, "post_event")
+          return {
+            phaseCounts: { preparation: prep.size, post_event: post.size },
+            // a booth volunteer is only "done" when both phases are filled in
+            evaluatedCount: [...prep].filter((id) => post.has(id)).length,
+          }
+        })(),
       }))
 
       const departments = ((deptsRes.data ?? []) as unknown as {
@@ -209,11 +317,20 @@ export function useEvaluationGroups(eventId: string | undefined, evaluatorId: st
           ),
           // the whole team is evaluated for the event, not just registered participants
           participantCount: teamSizes.get(row.departments!.id) ?? 0,
+          // teams stay single-phase, so every row lands in post_event
           evaluatedCount: new Set(
             evaluations
               .filter((e) => e.department_id === row.departments!.id)
               .map((e) => e.volunteer_id)
           ).size,
+          phaseCounts: {
+            preparation: 0,
+            post_event: new Set(
+              evaluations
+                .filter((e) => e.department_id === row.departments!.id)
+                .map((e) => e.volunteer_id)
+            ).size,
+          },
         }))
 
       return {
@@ -229,15 +346,27 @@ export function useEvaluationGroups(eventId: string | undefined, evaluatorId: st
 // ------------------------------------------------------------
 // One group and the people to evaluate in it
 // ------------------------------------------------------------
+/** What is on record for one volunteer in one phase. */
+export interface PhaseEntry {
+  evaluation: EventEvaluationRow | null
+  /** who submitted the evaluation shown above (null when it's yours) */
+  evaluatedByName: string | null
+  isOwnEvaluation: boolean
+}
+
+const EMPTY_PHASE_ENTRY: PhaseEntry = {
+  evaluation: null,
+  evaluatedByName: null,
+  isOwnEvaluation: false,
+}
+
 export interface EvaluationTarget {
   volunteerId: string
   fullName: string
   photoUrl: string | null
   roleDescription: string | null
-  evaluation: EventEvaluationRow | null
-  /** who submitted the evaluation shown above (null when it's yours) */
-  evaluatedByName: string | null
-  isOwnEvaluation: boolean
+  /** one entry per phase; departments only ever populate `post_event` */
+  phases: Record<EvaluationPhase, PhaseEntry>
 }
 
 export function useEvaluationTargets(
@@ -289,26 +418,40 @@ export function useEvaluationTargets(
         volunteers: { id: string; full_name: string; photo_url: string | null } | null
       }[]
 
+      function entryFor(volunteerId: string, phase: EvaluationPhase): PhaseEntry {
+        const own = evaluations.find(
+          (ev) =>
+            ev.volunteer_id === volunteerId &&
+            ev.evaluated_by === evaluatorId &&
+            ev.phase === phase
+        )
+        // reviewers fall back to whatever the leader submitted
+        const shown =
+          own ??
+          (isReviewer
+            ? evaluations.find((ev) => ev.volunteer_id === volunteerId && ev.phase === phase)
+            : undefined)
+        if (!shown) return EMPTY_PHASE_ENTRY
+
+        return {
+          evaluation: shown,
+          evaluatedByName: own ? null : (shown.profiles?.full_name ?? "a leader"),
+          isOwnEvaluation: !!own,
+        }
+      }
+
       const targets = roster
         .filter((row) => row.volunteers)
-        .map<EvaluationTarget>((row) => {
-          const own = evaluations.find(
-            (ev) => ev.volunteer_id === row.volunteer_id && ev.evaluated_by === evaluatorId
-          )
-          // reviewers fall back to whatever the leader submitted
-          const shown =
-            own ?? (isReviewer ? evaluations.find((ev) => ev.volunteer_id === row.volunteer_id) : undefined)
-
-          return {
-            volunteerId: row.volunteer_id,
-            fullName: row.volunteers!.full_name,
-            photoUrl: row.volunteers!.photo_url,
-            roleDescription: row.role_description ?? null,
-            evaluation: shown ?? null,
-            evaluatedByName: shown && !own ? (shown.profiles?.full_name ?? "a leader") : null,
-            isOwnEvaluation: !!own,
-          }
-        })
+        .map<EvaluationTarget>((row) => ({
+          volunteerId: row.volunteer_id,
+          fullName: row.volunteers!.full_name,
+          photoUrl: row.volunteers!.photo_url,
+          roleDescription: row.role_description ?? null,
+          phases: {
+            preparation: entryFor(row.volunteer_id, "preparation"),
+            post_event: entryFor(row.volunteer_id, "post_event"),
+          },
+        }))
         .sort((a, b) => a.fullName.localeCompare(b.fullName))
 
       return {
@@ -327,11 +470,15 @@ export interface SaveEvaluationInput {
   department_id: string | null
   volunteer_id: string
   evaluated_by: string
+  phase: EvaluationPhase
   meeting_attendance_rating: number | null
+  task_completion_rating: number | null
   shifts_count: number
   performance_rating: number | null
   teamwork_rating: number | null
   communication_rating: number | null
+  attitude_rating: number | null
+  commitment_rating: number | null
   notes: string
   potential_future_booth_leader: boolean
   is_talented: boolean

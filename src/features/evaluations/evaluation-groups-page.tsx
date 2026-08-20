@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/features/auth/auth-context"
-import { useEvaluationGroups, type EvaluationGroup } from "./use-evaluations"
+import { PHASES, useEvaluationGroups, type EvaluationGroup } from "./use-evaluations"
 
 function GroupCard({
   eventId,
@@ -49,19 +49,51 @@ function GroupCard({
           {group.participantCount} volunteers
         </div>
 
-        <div className="mt-auto">
-          <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-            <span>You evaluated</span>
-            <span>
-              {group.evaluatedCount}/{group.participantCount}
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
+        <div className="mt-auto flex flex-col gap-2">
+          {group.type === "booth" ? (
+            // booths are scored twice, so each phase gets its own bar
+            PHASES.map((phase) => {
+              const count = group.phaseCounts[phase.key]
+              const phasePercent =
+                group.participantCount > 0
+                  ? Math.min(100, Math.round((count / group.participantCount) * 100))
+                  : 0
+              return (
+                <div key={phase.key}>
+                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                    <span>
+                      {phase.label}{" "}
+                      <span className="opacity-70">({phase.parenthetical})</span>
+                    </span>
+                    <span className="tabular-nums">
+                      {count}/{group.participantCount}
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${phasePercent}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })
+          ) : (
+            <div>
+              <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                <span>Evaluated</span>
+                <span className="tabular-nums">
+                  {group.evaluatedCount}/{group.participantCount}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <Button

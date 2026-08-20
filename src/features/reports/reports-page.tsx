@@ -76,7 +76,7 @@ function useReportsData() {
             .select("volunteer_id, total_hours, volunteers (full_name)"),
           supabase
             .from("event_evaluations")
-            .select("performance_rating, recommend_for_future_events, potential_future_booth_leader, events (name)"),
+            .select("phase, performance_rating, recommend_for_future_events, potential_future_booth_leader, events (name)"),
           supabase.from("tasks").select("id, status, due_date, department_id, departments (name)"),
         ])
 
@@ -137,11 +137,15 @@ function useReportsData() {
         { count: number; ratingSum: number; ratingCount: number; recommended: number; potentialLeaders: number }
       >()
       for (const row of (monthlyRes.data ?? []) as unknown as {
+        phase: string
         performance_rating: number | null
         recommend_for_future_events: boolean | null
         potential_future_booth_leader: boolean | null
         events: { name: string } | null
       }[]) {
+        // this report is about how the event itself went, and preparation rows
+        // carry none of that data — counting them would just inflate the totals
+        if (row.phase === "preparation") continue
         const name = row.events?.name ?? "—"
         const entry =
           evalMap.get(name) ?? { count: 0, ratingSum: 0, ratingCount: 0, recommended: 0, potentialLeaders: 0 }
