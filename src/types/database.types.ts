@@ -451,6 +451,20 @@ export type InterviewRow = {
   city: string | null
   department_id: string | null
   ratings: Record<string, number>
+  /** one short note per scored criterion, keyed like `ratings` */
+  criteria_notes: Record<string, string>
+  /** spoken languages as free text — these are written down, not scored */
+  languages: string | null
+  volunteered_before: boolean | null
+  previous_volunteering: string | null
+  /** talents beyond the role they applied for */
+  other_skills: string | null
+  applied_before: boolean | null
+  /** the committee's own verdict, 1-10 */
+  overall_rating: number | null
+  applied_for: string | null
+  /** the form response this interview was started from */
+  form_response_id: string | null
   notes: string | null
   strengths: string | null
   concerns: string | null
@@ -490,6 +504,73 @@ export type BoothProposalUpdate = Partial<BoothProposalRow>
 export type FormDestination = "volunteers" | "event_participants" | "none"
 export type FormTheme = "light" | "soft" | "gradient" | "dark"
 
+/**
+ * Everything the public form's look is driven by. Every key is optional —
+ * `resolveDesign()` in features/forms/form-design.ts fills in the defaults —
+ * so a new control never needs a migration.
+ */
+export type FormDesign = {
+  preset?: string
+
+  width?: "narrow" | "normal" | "wide" | "xwide" | "full"
+  density?: "compact" | "comfortable" | "airy"
+  radius?: "none" | "sm" | "md" | "lg" | "xl" | "2xl"
+
+  bgStyle?:
+    | "solid"
+    | "gradient"
+    | "mesh"
+    | "dots"
+    | "grid"
+    | "stripes"
+    | "waves"
+    | "rings"
+    | "glow"
+    | "image"
+  bgFrom?: string
+  bgVia?: string
+  bgTo?: string
+  bgAngle?: number
+  bgPatternColor?: string
+  bgPatternOpacity?: number
+  bgImageUrl?: string | null
+  bgImageOverlay?: number
+
+  cardStyle?: "elevated" | "flat" | "outlined" | "glass" | "none"
+  cardBg?: string
+  cardOpacity?: number
+  cardBorderColor?: string
+  cardShadow?: "none" | "sm" | "md" | "lg" | "xl" | "glow"
+
+  questionStyle?: "card" | "boxed" | "underline" | "flat" | "split"
+  questionBg?: string
+  questionBorderColor?: string
+  questionAccentBar?: boolean
+  questionNumbers?: boolean
+  questionTextColor?: string
+
+  headingColor?: string
+  bodyColor?: string
+  font?: string
+  titleSize?: "sm" | "md" | "lg" | "xl"
+
+  coverHeight?: "none" | "sm" | "md" | "lg" | "hero"
+  coverOverlay?: number
+  headerStyle?: "banner" | "overlap" | "hero" | "minimal"
+  showLogo?: boolean
+
+  buttonStyle?: "solid" | "gradient" | "outline" | "soft" | "glow"
+  buttonRadius?: "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "pill"
+  buttonWidth?: "full" | "auto"
+  buttonLabel?: string
+
+  accentGradient?: boolean
+  accentTo?: string
+  progressBar?: boolean
+  animate?: boolean
+  footerNote?: string
+}
+
 export type FormRow = {
   id: string
   title: string
@@ -498,6 +579,9 @@ export type FormRow = {
   accent_color: string
   cover_image_url: string | null
   theme: FormTheme
+  design: FormDesign | null
+  custom_css: string | null
+  custom_header_html: string | null
   is_active: boolean
   destination: FormDestination
   destination_event_id: string | null

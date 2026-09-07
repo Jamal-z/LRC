@@ -1,12 +1,19 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
-  ArrowLeft,
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
+  Copy,
+  ExternalLink,
+  Eye,
   GripVertical,
   ImagePlus,
+  Monitor,
+  Palette,
   Plus,
+  Settings2,
+  Smartphone,
   Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -17,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
@@ -36,17 +44,19 @@ import {
   useFormFields,
   useSaveForm,
 } from "./use-forms"
-import { FORM_THEMES } from "./form-theme"
+import { DEFAULT_DESIGN, resolveDesign, sanitizeCss, sanitizeHtml } from "./form-design"
+import { FormDesignPanel } from "./form-design-panel"
+import { FormRenderer, previewFields, type AnswerMap } from "./form-renderer"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
-import type { FormDestination, FormFieldType, FormTheme } from "@/types/database.types"
+import type {
+  FormDesign,
+  FormDestination,
+  FormFieldRow,
+  FormFieldType,
+} from "@/types/database.types"
 
 const NONE = "__none__"
-
-const ACCENT_COLORS = [
-  "#2563eb", "#0ea5e9", "#14b8a6", "#16a34a",
-  "#f59e0b", "#f97316", "#ef4444", "#8b5cf6",
-]
 
 interface DraftField {
   key: string
@@ -91,8 +101,10 @@ export function FormBuilderPage() {
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [accentColor, setAccentColor] = useState(ACCENT_COLORS[0])
-  const [theme, setTheme] = useState<FormTheme>("light")
+  const [accentColor, setAccentColor] = useState("#2563eb")
+  const [design, setDesign] = useState<Required<FormDesign>>(DEFAULT_DESIGN)
+  const [customCss, setCustomCss] = useState("")
+  const [customHeaderHtml, setCustomHeaderHtml] = useState("")
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
@@ -103,6 +115,9 @@ export function FormBuilderPage() {
   const [destinationDepartmentId, setDestinationDepartmentId] = useState<string>(NONE)
   const [successMessage, setSuccessMessage] = useState("")
   const [fields, setFields] = useState<DraftField[]>([])
+
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop")
+  const [previewAnswers, setPreviewAnswers] = useState<AnswerMap>({})
 
   useEffect(() => {
     if (isNew) {
@@ -121,7 +136,9 @@ export function FormBuilderPage() {
       setTitle(existingForm.title)
       setDescription(existingForm.description ?? "")
       setAccentColor(existingForm.accent_color)
-      setTheme(existingForm.theme ?? "light")
+      setDesign(resolveDesign(existingForm.design))
+      setCustomCss(existingForm.custom_css ?? "")
+      setCustomHeaderHtml(existingForm.custom_header_html ?? "")
       setCoverImageUrl(existingForm.cover_image_url)
       setIsActive(existingForm.is_active)
       setDestination(existingForm.destination)
@@ -161,6 +178,53 @@ export function FormBuilderPage() {
     })
   }
 
+  function patchDesign(patch: Partial<Required<FormDesign>>) {
+    // any hand tweak means this is no longer exactly one of the presets
+    setDesign((prev) => ({ ...prev, ...patch, preset: patch.preset ?? "custom" }))
+  }
+
+  /** What the preview renders: the real questions, or a sample set while empty. */
+  const previewForm = useMemo(
+    () => ({
+      title: title || "عنوان النموذج",
+      description: description || null,
+      accent_color: accentColor,
+      cover_image_url: coverPreview ?? coverImageUrl,
+      success_message: successMessage || null,
+      design,
+      custom_css: customCss,
+      custom_header_html: customHeaderHtml,
+    }),
+    [
+      title,
+      description,
+      accentColor,
+      coverPreview,
+      coverImageUrl,
+      successMessage,
+      design,
+      customCss,
+      customHeaderHtml,
+    ]
+  )
+
+  const previewFieldRows: FormFieldRow[] = useMemo(() => {
+    const real = fields.filter((f) => f.label.trim())
+    if (!real.length) return previewFields()
+    return real.map((f, index) => ({
+      id: f.key,
+      form_id: "preview",
+      label: f.label,
+      help_text: f.help_text || null,
+      field_type: f.field_type,
+      options: f.options.filter(Boolean),
+      is_required: f.is_required,
+      position: index,
+      maps_to: f.maps_to,
+      created_at: "",
+    }))
+  }, [fields])
+
   async function handleSave() {
     if (title.trim().length < 2) {
       toast.error("Give your form a title")
@@ -194,7 +258,10 @@ export function FormBuilderPage() {
           title: title.trim(),
           description: description || null,
           accent_color: accentColor,
-          theme,
+          design,
+          // the public page renders these, so strip anything executable first
+          custom_css: customCss.trim() ? sanitizeCss(customCss) : null,
+          custom_header_html: customHeaderHtml.trim() ? sanitizeHtml(customHeaderHtml) : null,
           cover_image_url: coverUrl,
           is_active: isActive,
           destination,
@@ -231,391 +298,502 @@ export function FormBuilderPage() {
   const needsOptions = (type: FormFieldType) =>
     type === "select" || type === "radio" || type === "checkbox"
 
+  const publicUrl = existingForm ? `${window.location.origin}/f/${existingForm.slug}` : null
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Button variant="ghost" size="sm" render={<Link to="/forms" />}>
-          <ArrowLeft className="size-4" />
-          Back to forms
-        </Button>
-      </div>
-
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {isNew ? "Create form" : "Edit form"}
-        </h1>
-        <Button onClick={handleSave} disabled={saveForm.isPending}>
-          {saveForm.isPending ? "Saving…" : isNew ? "Create form" : "Save changes"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" render={<Link to="/forms" />}>
+            <ArrowLeft className="size-4" />
+            Back to forms
+          </Button>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            {isNew ? "Create form" : "Edit form"}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          {publicUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              render={<a href={publicUrl} target="_blank" rel="noreferrer" />}
+            >
+              <ExternalLink className="size-4" />
+              Open live form
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={saveForm.isPending}>
+            {saveForm.isPending ? "Saving…" : isNew ? "Create form" : "Save changes"}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_20rem]">
-        {/* questions */}
-        <div className="flex flex-col gap-4">
-          <Card className="overflow-hidden pt-0">
-            <div className="h-2 w-full" style={{ backgroundColor: accentColor }} aria-hidden />
-            <CardContent className="flex flex-col gap-3">
-              <Field>
-                <FieldLabel htmlFor="f-title">Form title *</FieldLabel>
-                <Input
-                  id="f-title"
-                  placeholder="e.g. Volunteer registration"
-                  className="h-11 text-lg font-medium"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+        {/* ---------------- editor ---------------- */}
+        <div className="min-w-0">
+          <Tabs defaultValue="questions">
+            <TabsList className="w-full">
+              <TabsTrigger value="questions" className="flex-1">
+                <GripVertical className="size-4" />
+                الأسئلة
+              </TabsTrigger>
+              <TabsTrigger value="design" className="flex-1">
+                <Palette className="size-4" />
+                التصميم
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex-1">
+                <Settings2 className="size-4" />
+                الإعدادات
+              </TabsTrigger>
+            </TabsList>
+
+            {/* questions */}
+            <TabsContent value="questions" className="flex flex-col gap-3 pt-3">
+              <Card className="overflow-hidden pt-0">
+                <div
+                  className="h-2 w-full"
+                  style={{ background: `linear-gradient(90deg, ${accentColor}, ${design.accentTo})` }}
+                  aria-hidden
                 />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="f-desc">Description</FieldLabel>
-                <Textarea
-                  id="f-desc"
-                  rows={2}
-                  placeholder="Shown under the title on the public form"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </Field>
-            </CardContent>
-          </Card>
-
-          {fields.map((field, index) => (
-            <Card key={field.key}>
-              <CardContent className="flex flex-col gap-3">
-                <div className="flex items-start gap-2">
-                  <GripVertical className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
-                  <div className="flex-1">
-                    <Input
-                      placeholder={`Question ${index + 1}`}
-                      value={field.label}
-                      onChange={(e) => updateField(field.key, { label: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label="Move up"
-                      disabled={index === 0}
-                      onClick={() => moveField(index, -1)}
-                    >
-                      <ArrowUp className="size-3.5" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label="Move down"
-                      disabled={index === fields.length - 1}
-                      onClick={() => moveField(index, 1)}
-                    >
-                      <ArrowDown className="size-3.5" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label="Remove question"
-                      onClick={() => setFields((prev) => prev.filter((f) => f.key !== field.key))}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 pl-6 sm:grid-cols-2">
+                <CardContent className="flex flex-col gap-3">
                   <Field>
-                    <FieldLabel>Answer type</FieldLabel>
-                    <Select
-                      value={field.field_type}
-                      onValueChange={(v) =>
-                        updateField(field.key, { field_type: (v ?? "text") as FormFieldType })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FIELD_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <Field>
-                    <FieldLabel>Save answer into</FieldLabel>
-                    <Select
-                      value={field.maps_to ?? NONE}
-                      onValueChange={(v) =>
-                        updateField(field.key, { maps_to: v === NONE ? null : (v ?? null) })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>Don't save to a field</SelectItem>
-                        {FIELD_MAPPINGS.map((mapping) => (
-                          <SelectItem key={mapping.value} value={mapping.value}>
-                            {mapping.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FieldDescription>
-                      Used when you accept a response.
-                    </FieldDescription>
-                  </Field>
-
-                  <Field className="sm:col-span-2">
-                    <FieldLabel>Helper text</FieldLabel>
+                    <FieldLabel htmlFor="f-title">Form title *</FieldLabel>
                     <Input
-                      placeholder="Optional hint shown under the question"
-                      value={field.help_text}
-                      onChange={(e) => updateField(field.key, { help_text: e.target.value })}
+                      id="f-title"
+                      placeholder="e.g. Volunteer registration"
+                      className="h-11 text-lg font-medium"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
                     />
                   </Field>
+                  <Field>
+                    <FieldLabel htmlFor="f-desc">Description</FieldLabel>
+                    <Textarea
+                      id="f-desc"
+                      rows={2}
+                      placeholder="Shown under the title on the public form"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </Field>
+                </CardContent>
+              </Card>
 
-                  {needsOptions(field.field_type) && (
-                    <Field className="sm:col-span-2">
-                      <FieldLabel>Choices (one per line)</FieldLabel>
-                      <Textarea
-                        rows={3}
-                        placeholder={"Option 1\nOption 2"}
-                        value={field.options.join("\n")}
-                        onChange={(e) =>
-                          updateField(field.key, { options: e.target.value.split("\n") })
-                        }
+              {fields.map((field, index) => (
+                <Card key={field.key}>
+                  <CardContent className="flex flex-col gap-3">
+                    <div className="flex items-start gap-2">
+                      <span className="mt-2 grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                        {index + 1}
+                      </span>
+                      <div className="flex-1">
+                        <Input
+                          placeholder={`Question ${index + 1}`}
+                          value={field.label}
+                          onChange={(e) => updateField(field.key, { label: e.target.value })}
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Move up"
+                          disabled={index === 0}
+                          onClick={() => moveField(index, -1)}
+                        >
+                          <ArrowUp className="size-3.5" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Move down"
+                          disabled={index === fields.length - 1}
+                          onClick={() => moveField(index, 1)}
+                        >
+                          <ArrowDown className="size-3.5" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Duplicate question"
+                          onClick={() =>
+                            setFields((prev) => [
+                              ...prev.slice(0, index + 1),
+                              { ...field, key: crypto.randomUUID() },
+                              ...prev.slice(index + 1),
+                            ])
+                          }
+                        >
+                          <Copy className="size-3.5" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Remove question"
+                          onClick={() =>
+                            setFields((prev) => prev.filter((f) => f.key !== field.key))
+                          }
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel>Answer type</FieldLabel>
+                        <Select
+                          value={field.field_type}
+                          onValueChange={(v) =>
+                            updateField(field.key, { field_type: (v ?? "text") as FormFieldType })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FIELD_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+
+                      <Field>
+                        <FieldLabel>Save answer into</FieldLabel>
+                        <Select
+                          value={field.maps_to ?? NONE}
+                          onValueChange={(v) =>
+                            updateField(field.key, { maps_to: v === NONE ? null : (v ?? null) })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE}>Don't save to a field</SelectItem>
+                            {FIELD_MAPPINGS.map((mapping) => (
+                              <SelectItem key={mapping.value} value={mapping.value}>
+                                {mapping.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                          Used when you accept a response, and to pre-fill an interview.
+                        </FieldDescription>
+                      </Field>
+
+                      <Field className="sm:col-span-2">
+                        <FieldLabel>Helper text</FieldLabel>
+                        <Input
+                          placeholder="Optional hint shown under the question"
+                          value={field.help_text}
+                          onChange={(e) => updateField(field.key, { help_text: e.target.value })}
+                        />
+                      </Field>
+
+                      {needsOptions(field.field_type) && (
+                        <Field className="sm:col-span-2">
+                          <FieldLabel>Choices (one per line)</FieldLabel>
+                          <Textarea
+                            rows={3}
+                            placeholder={"Option 1\nOption 2"}
+                            value={field.options.join("\n")}
+                            onChange={(e) =>
+                              updateField(field.key, { options: e.target.value.split("\n") })
+                            }
+                          />
+                        </Field>
+                      )}
+
+                      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                        <Checkbox
+                          checked={field.is_required}
+                          onCheckedChange={(checked) =>
+                            updateField(field.key, { is_required: !!checked })
+                          }
+                        />
+                        Required
+                      </label>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              <Button variant="outline" onClick={() => setFields((prev) => [...prev, newField()])}>
+                <Plus className="size-4" />
+                Add question
+              </Button>
+            </TabsContent>
+
+            {/* design */}
+            <TabsContent value="design" className="pt-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">تصميم الفورم</CardTitle>
+                  <CardDescription>
+                    كل تعديل بتعمله بتشوفه فوراً بالمعاينة على اليمين.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FormDesignPanel
+                    design={design}
+                    onChange={patchDesign}
+                    onReplace={setDesign}
+                    accentColor={accentColor}
+                    onAccentColor={setAccentColor}
+                    customCss={customCss}
+                    onCustomCss={setCustomCss}
+                    customHeaderHtml={customHeaderHtml}
+                    onCustomHeaderHtml={setCustomHeaderHtml}
+                    formTitle={title}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* settings */}
+            <TabsContent value="settings" className="flex flex-col gap-4 pt-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Cover image</CardTitle>
+                  <CardDescription>
+                    Its size on the page is set under التصميم → الغلاف.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    className="group relative h-40 w-full overflow-hidden rounded-xl border-2 border-dashed border-border transition-colors hover:border-primary/50"
+                  >
+                    {coverPreview || coverImageUrl ? (
+                      <img
+                        src={coverPreview ?? coverImageUrl ?? undefined}
+                        alt="Form cover"
+                        className="h-full w-full object-cover"
                       />
+                    ) : (
+                      <span className="flex h-full flex-col items-center justify-center gap-1 text-muted-foreground">
+                        <ImagePlus className="size-6" />
+                        <span className="text-xs">Add a cover image</span>
+                      </span>
+                    )}
+                    <span className="absolute inset-0 hidden items-center justify-center bg-black/40 text-xs font-medium text-white group-hover:flex">
+                      Change image
+                    </span>
+                  </button>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setCoverFile(file)
+                        setCoverPreview(URL.createObjectURL(file))
+                      }
+                    }}
+                  />
+                  {(coverPreview || coverImageUrl) && (
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="self-start"
+                      onClick={() => {
+                        setCoverFile(null)
+                        setCoverPreview(null)
+                        setCoverImageUrl(null)
+                      }}
+                    >
+                      Remove image
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Responses</CardTitle>
+                  <CardDescription>What accepting a response does.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <label className="flex items-center justify-between rounded-lg border border-border p-3 text-sm">
+                    <div>
+                      <p className="font-medium text-foreground">Accepting responses</p>
+                      <FieldDescription>Turn off to close the form.</FieldDescription>
+                    </div>
+                    <Switch checked={isActive} onCheckedChange={setIsActive} />
+                  </label>
+
+                  <Field>
+                    <FieldLabel>When I accept a response…</FieldLabel>
+                    <Select
+                      value={destination}
+                      onValueChange={(v) => setDestination((v ?? "volunteers") as FormDestination)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="volunteers">Add them as a volunteer</SelectItem>
+                        <SelectItem value="event_participants">
+                          Add them to a specific event
+                        </SelectItem>
+                        <SelectItem value="none">Just keep the record</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  {destination === "event_participants" && (
+                    <Field>
+                      <FieldLabel>Event</FieldLabel>
+                      <Select
+                        value={destinationEventId}
+                        onValueChange={(v) => setDestinationEventId(v ?? NONE)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose an event" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {events.map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                              {event.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </Field>
                   )}
 
-                  <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                    <Checkbox
-                      checked={field.is_required}
-                      onCheckedChange={(checked) =>
-                        updateField(field.key, { is_required: !!checked })
-                      }
-                    />
-                    Required
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {destination !== "none" && (
+                    <Field>
+                      <FieldLabel>Default team</FieldLabel>
+                      <Select
+                        value={destinationDepartmentId}
+                        onValueChange={(v) => setDestinationDepartmentId(v ?? NONE)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="No default" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE}>No default</SelectItem>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldDescription>
+                        Used when the form doesn't ask for a team.
+                      </FieldDescription>
+                    </Field>
+                  )}
 
-          <Button variant="outline" onClick={() => setFields((prev) => [...prev, newField()])}>
-            <Plus className="size-4" />
-            Add question
-          </Button>
+                  <Field>
+                    <FieldLabel htmlFor="f-success">Thank-you message</FieldLabel>
+                    <Textarea
+                      id="f-success"
+                      rows={3}
+                      placeholder="Shown after someone submits the form"
+                      value={successMessage}
+                      onChange={(e) => setSuccessMessage(e.target.value)}
+                    />
+                  </Field>
+                </CardContent>
+              </Card>
+
+              {publicUrl && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Public link</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex items-center gap-2">
+                    <code
+                      className="block flex-1 break-all rounded-lg bg-muted px-3 py-2 text-xs"
+                      dir="ltr"
+                    >
+                      {publicUrl}
+                    </code>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      aria-label="Copy link"
+                      onClick={() => {
+                        navigator.clipboard.writeText(publicUrl)
+                        toast.success("Link copied")
+                      }}
+                    >
+                      <Copy className="size-3.5" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* settings */}
-        <div className="flex flex-col gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Settings</CardTitle>
-              <CardDescription>How the form looks and what accepting does.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <Field>
-                <FieldLabel>Theme</FieldLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  {FORM_THEMES.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setTheme(option.value)}
-                      className={cn(
-                        "flex flex-col gap-1.5 rounded-xl border p-2 text-left transition-colors",
-                        theme === option.value
-                          ? "border-primary ring-2 ring-primary/30"
-                          : "border-border hover:bg-accent/40"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "h-10 w-full rounded-lg border border-black/5",
-                          option.preview
-                        )}
-                      />
-                      <span className="text-xs font-medium text-foreground">{option.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </Field>
-
-              <Field>
-                <FieldLabel>Cover image</FieldLabel>
-                <button
-                  type="button"
-                  onClick={() => coverInputRef.current?.click()}
-                  className="group relative h-28 w-full overflow-hidden rounded-xl border-2 border-dashed border-border transition-colors hover:border-primary/50"
+        {/* ---------------- live preview ---------------- */}
+        <div className="min-w-0">
+          <div className="sticky top-4 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <Eye className="size-4" />
+                معاينة مباشرة
+              </p>
+              <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+                <Button
+                  size="icon-sm"
+                  variant={previewDevice === "desktop" ? "secondary" : "ghost"}
+                  aria-label="Desktop preview"
+                  onClick={() => setPreviewDevice("desktop")}
                 >
-                  {coverPreview || coverImageUrl ? (
-                    <img
-                      src={coverPreview ?? coverImageUrl ?? undefined}
-                      alt="Form cover"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full flex-col items-center justify-center gap-1 text-muted-foreground">
-                      <ImagePlus className="size-5" />
-                      <span className="text-xs">Add a cover image</span>
-                    </span>
-                  )}
-                  <span className="absolute inset-0 hidden items-center justify-center bg-black/40 text-xs font-medium text-white group-hover:flex">
-                    Change image
-                  </span>
-                </button>
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) {
-                      setCoverFile(file)
-                      setCoverPreview(URL.createObjectURL(file))
-                    }
-                  }}
-                />
-                {(coverPreview || coverImageUrl) && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => {
-                      setCoverFile(null)
-                      setCoverPreview(null)
-                      setCoverImageUrl(null)
-                    }}
-                  >
-                    Remove image
-                  </Button>
-                )}
-              </Field>
-
-              <Field>
-                <FieldLabel>Accent colour</FieldLabel>
-                <div className="flex flex-wrap gap-2">
-                  {ACCENT_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      aria-label={color}
-                      className="size-7 rounded-full transition-transform hover:scale-110"
-                      style={{
-                        backgroundColor: color,
-                        boxShadow:
-                          accentColor === color
-                            ? `0 0 0 2px var(--background), 0 0 0 4px ${color}`
-                            : undefined,
-                      }}
-                      onClick={() => setAccentColor(color)}
-                    />
-                  ))}
-                </div>
-              </Field>
-
-              <label className="flex items-center justify-between rounded-lg border border-border p-3 text-sm">
-                <div>
-                  <p className="font-medium text-foreground">Accepting responses</p>
-                  <FieldDescription>Turn off to close the form.</FieldDescription>
-                </div>
-                <Switch checked={isActive} onCheckedChange={setIsActive} />
-              </label>
-
-              <Field>
-                <FieldLabel>When I accept a response…</FieldLabel>
-                <Select
-                  value={destination}
-                  onValueChange={(v) => setDestination((v ?? "volunteers") as FormDestination)}
+                  <Monitor className="size-3.5" />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant={previewDevice === "mobile" ? "secondary" : "ghost"}
+                  aria-label="Mobile preview"
+                  onClick={() => setPreviewDevice("mobile")}
                 >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="volunteers">Add them as a volunteer</SelectItem>
-                    <SelectItem value="event_participants">
-                      Add them to a specific event
-                    </SelectItem>
-                    <SelectItem value="none">Just keep the record</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
+                  <Smartphone className="size-3.5" />
+                </Button>
+              </div>
+            </div>
 
-              {destination === "event_participants" && (
-                <Field>
-                  <FieldLabel>Event</FieldLabel>
-                  <Select
-                    value={destinationEventId}
-                    onValueChange={(v) => setDestinationEventId(v ?? NONE)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose an event" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {events.map((event) => (
-                        <SelectItem key={event.id} value={event.id}>
-                          {event.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+            <div
+              className={cn(
+                "overflow-hidden rounded-2xl border border-border bg-background shadow-sm",
+                previewDevice === "mobile" && "mx-auto w-[24rem] max-w-full rounded-[2rem] border-8 border-slate-800"
               )}
-
-              {destination !== "none" && (
-                <Field>
-                  <FieldLabel>Default team</FieldLabel>
-                  <Select
-                    value={destinationDepartmentId}
-                    onValueChange={(v) => setDestinationDepartmentId(v ?? NONE)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="No default" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>No default</SelectItem>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>
-                    Used when the form doesn't ask for a team.
-                  </FieldDescription>
-                </Field>
-              )}
-
-              <Field>
-                <FieldLabel htmlFor="f-success">Thank-you message</FieldLabel>
-                <Textarea
-                  id="f-success"
-                  rows={3}
-                  placeholder="Shown after someone submits the form"
-                  value={successMessage}
-                  onChange={(e) => setSuccessMessage(e.target.value)}
+            >
+              <div className="max-h-[calc(100svh-9rem)] overflow-y-auto">
+                <FormRenderer
+                  form={previewForm}
+                  fields={previewFieldRows}
+                  answers={previewAnswers}
+                  errors={{}}
+                  onAnswer={(fieldId, value) =>
+                    setPreviewAnswers((prev) => ({ ...prev, [fieldId]: value }))
+                  }
+                  onSubmit={(e) => e.preventDefault()}
+                  preview
                 />
-              </Field>
-            </CardContent>
-          </Card>
+              </div>
+            </div>
 
-          {!isNew && existingForm && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Public link</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <code className="block break-all rounded-lg bg-muted px-3 py-2 text-xs" dir="ltr">
-                  {window.location.origin}/f/{existingForm.slug}
-                </code>
-              </CardContent>
-            </Card>
-          )}
+            {!fields.some((f) => f.label.trim()) && (
+              <p className="text-center text-xs text-muted-foreground">
+                هاي أسئلة تجريبية — أضف أسئلتك من تبويب «الأسئلة».
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

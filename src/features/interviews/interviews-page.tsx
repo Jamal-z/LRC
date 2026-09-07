@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react"
-import { Link } from "react-router-dom"
-import { Download, MessageSquareText, Plus, Star, Trash2, UserRoundPlus } from "lucide-react"
+import { Link, useNavigate } from "react-router-dom"
+import {
+  Download,
+  Inbox,
+  MessageSquareText,
+  Plus,
+  Star,
+  Trash2,
+  UserRoundPlus,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,7 +44,7 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { exportToCsv, exportToExcel, type ExportColumn } from "@/lib/export"
 import { cn } from "@/lib/utils"
 import type { InterviewStatus } from "@/types/database.types"
-import { InterviewFormDialog } from "./interview-form-dialog"
+import { InterviewApplicants } from "./interview-applicants"
 import {
   INTERVIEW_CRITERIA,
   INTERVIEW_STATUS_BADGE,
@@ -59,12 +67,25 @@ const EXPORT_COLUMNS: ExportColumn<InterviewWithRelations>[] = [
   { header: "Major", value: (i) => i.major },
   { header: "City", value: (i) => i.city },
   { header: "Team", value: (i) => i.departments?.name },
+  { header: "Applied For", value: (i) => i.applied_for },
   { header: "Decision", value: (i) => INTERVIEW_STATUS_LABELS[i.status] },
-  { header: "Average", value: (i) => interviewAverage(i.ratings)?.toFixed(2) },
-  ...INTERVIEW_CRITERIA.map<ExportColumn<InterviewWithRelations>>((criterion) => ({
-    header: criterion.label,
-    value: (i) => i.ratings?.[criterion.key],
-  })),
+  { header: "Our Rating /10", value: (i) => i.overall_rating },
+  { header: "Star Average", value: (i) => interviewAverage(i.ratings)?.toFixed(2) },
+  ...INTERVIEW_CRITERIA.flatMap<ExportColumn<InterviewWithRelations>>((criterion) => [
+    { header: criterion.label, value: (i) => i.ratings?.[criterion.key] },
+    { header: `${criterion.label} — note`, value: (i) => i.criteria_notes?.[criterion.key] },
+  ]),
+  { header: "Languages", value: (i) => i.languages },
+  {
+    header: "Volunteered Before",
+    value: (i) => (i.volunteered_before == null ? "" : i.volunteered_before ? "Yes" : "No"),
+  },
+  { header: "Previous Volunteering", value: (i) => i.previous_volunteering },
+  { header: "Other Skills", value: (i) => i.other_skills },
+  {
+    header: "Applied Before",
+    value: (i) => (i.applied_before == null ? "" : i.applied_before ? "Yes" : "No"),
+  },
   { header: "Strengths", value: (i) => i.strengths },
   { header: "Concerns", value: (i) => i.concerns },
   { header: "Notes", value: (i) => i.notes },
@@ -79,8 +100,7 @@ export function InterviewsPage() {
   const convertInterview = useConvertInterview()
   const deleteInterview = useDeleteInterview()
 
-  const [editing, setEditing] = useState<InterviewWithRelations | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const navigate = useNavigate()
   const [deleting, setDeleting] = useState<InterviewWithRelations | null>(null)
 
   const byStatus = useMemo(() => {
@@ -92,16 +112,6 @@ export function InterviewsPage() {
     for (const interview of interviews ?? []) groups[interview.status].push(interview)
     return groups
   }, [interviews])
-
-  function openNew() {
-    setEditing(null)
-    setDialogOpen(true)
-  }
-
-  function openEdit(interview: InterviewWithRelations) {
-    setEditing(interview)
-    setDialogOpen(true)
-  }
 
   async function handleStatus(interview: InterviewWithRelations, status: InterviewStatus) {
     try {
@@ -138,8 +148,8 @@ export function InterviewsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Interviews</h1>
           <p className="text-sm text-muted-foreground">
-            Everyone we've interviewed for volunteering, sorted by decision. Accepted candidates
-            can join the roster in one click.
+            ابدأ من تبويب «المتقدّمون» لتفتح مقابلة معبّاة من الفورم، أو سجّل مقابلة يدويًا. المقبولين
+            بينضمّوا للمتطوّعين بضغطة.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -163,7 +173,7 @@ export function InterviewsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={openNew}>
+          <Button onClick={() => navigate("/interviews/new")}>
             <Plus className="size-4" />
             New interview
           </Button>
@@ -179,14 +189,22 @@ export function InterviewsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue="accepted">
-          <TabsList>
+        <Tabs defaultValue="applicants">
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="applicants">
+              <Inbox className="size-4" />
+              المتقدّمون من الفورمز
+            </TabsTrigger>
             {STATUS_ORDER.map((status) => (
               <TabsTrigger key={status} value={status}>
                 {INTERVIEW_STATUS_LABELS[status]} ({byStatus[status].length})
               </TabsTrigger>
             ))}
           </TabsList>
+
+          <TabsContent value="applicants">
+            <InterviewApplicants />
+          </TabsContent>
 
           {STATUS_ORDER.map((status) => (
             <TabsContent key={status} value={status}>
@@ -218,7 +236,7 @@ export function InterviewsPage() {
                               <TableCell>
                                 <button
                                   type="button"
-                                  onClick={() => openEdit(interview)}
+                                  onClick={() => navigate(`/interviews/${interview.id}`)}
                                   className="text-left font-medium text-foreground hover:underline"
                                 >
                                   {interview.full_name}
@@ -235,10 +253,15 @@ export function InterviewsPage() {
                                 {interview.departments?.name ?? "—"}
                               </TableCell>
                               <TableCell>
-                                {average != null ? (
-                                  <span className="inline-flex items-center gap-1 text-sm font-medium tabular-nums text-foreground">
+                                {interview.overall_rating != null ? (
+                                  <span className="inline-flex items-center gap-1 text-sm font-semibold tabular-nums text-foreground">
                                     <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                                    {average.toFixed(1)}
+                                    {interview.overall_rating}/10
+                                  </span>
+                                ) : average != null ? (
+                                  <span className="inline-flex items-center gap-1 text-sm font-medium tabular-nums text-muted-foreground">
+                                    <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                                    {average.toFixed(1)}/5
                                   </span>
                                 ) : (
                                   <span className="text-sm text-muted-foreground">—</span>
@@ -300,7 +323,7 @@ export function InterviewsPage() {
                                         </DropdownMenuItem>
                                       ))}
                                       <DropdownMenuSeparator />
-                                      <DropdownMenuItem onClick={() => openEdit(interview)}>
+                                      <DropdownMenuItem onClick={() => navigate(`/interviews/${interview.id}`)}>
                                         Edit interview
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
@@ -326,12 +349,6 @@ export function InterviewsPage() {
           ))}
         </Tabs>
       )}
-
-      <InterviewFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        interview={editing}
-      />
 
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>

@@ -1,0 +1,808 @@
+import type { CSSProperties } from "react"
+import type { FormDesign } from "@/types/database.types"
+
+/**
+ * Everything about how a public form looks lives in one `design` object on
+ * the form row. Nothing in it is required — `resolveDesign` fills in every
+ * missing key — so new controls can be added without migrating old forms.
+ */
+
+export const DEFAULT_DESIGN: Required<FormDesign> = {
+  preset: "aurora",
+
+  width: "wide",
+  density: "comfortable",
+  radius: "xl",
+
+  bgStyle: "mesh",
+  bgFrom: "#eff6ff",
+  bgVia: "#ffffff",
+  bgTo: "#dbeafe",
+  bgAngle: 160,
+  bgPatternColor: "#2563eb",
+  bgPatternOpacity: 8,
+  bgImageUrl: null,
+  bgImageOverlay: 55,
+
+  cardStyle: "elevated",
+  cardBg: "#ffffff",
+  cardOpacity: 100,
+  cardBorderColor: "#e2e8f0",
+  cardShadow: "xl",
+
+  questionStyle: "card",
+  questionBg: "#f8fafc",
+  questionBorderColor: "#e2e8f0",
+  questionAccentBar: true,
+  questionNumbers: true,
+  questionTextColor: "#0f172a",
+
+  headingColor: "#0f172a",
+  bodyColor: "#475569",
+  font: "geist",
+  titleSize: "lg",
+
+  coverHeight: "lg",
+  coverOverlay: 0,
+  headerStyle: "banner",
+  showLogo: true,
+
+  buttonStyle: "solid",
+  buttonRadius: "xl",
+  buttonWidth: "full",
+  buttonLabel: "",
+
+  accentGradient: true,
+  accentTo: "#0ea5e9",
+  progressBar: true,
+  animate: true,
+  footerNote: "",
+}
+
+/* ------------------------------------------------------------------ */
+/* Option lists — these drive the designer UI                          */
+/* ------------------------------------------------------------------ */
+
+export const WIDTH_OPTIONS = [
+  { value: "narrow", label: "ضيق / Narrow", px: "36rem" },
+  { value: "normal", label: "عادي / Normal", px: "46rem" },
+  { value: "wide", label: "واسع / Wide", px: "58rem" },
+  { value: "xwide", label: "واسع جداً / Extra wide", px: "72rem" },
+  { value: "full", label: "كامل الشاشة / Full", px: "96rem" },
+] as const
+
+export const DENSITY_OPTIONS = [
+  { value: "compact", label: "متقارب / Compact" },
+  { value: "comfortable", label: "مريح / Comfortable" },
+  { value: "airy", label: "متباعد / Airy" },
+] as const
+
+export const BG_STYLES = [
+  { value: "solid", label: "لون واحد / Solid" },
+  { value: "gradient", label: "تدرّج / Gradient" },
+  { value: "mesh", label: "تدرّج ناعم / Soft mesh" },
+  { value: "dots", label: "نقاط / Dots" },
+  { value: "grid", label: "شبكة / Grid" },
+  { value: "stripes", label: "خطوط مائلة / Stripes" },
+  { value: "waves", label: "أمواج / Waves" },
+  { value: "rings", label: "دوائر / Rings" },
+  { value: "glow", label: "هالات ملونة / Glow" },
+  { value: "image", label: "صورة خلفية / Image" },
+] as const
+
+export const CARD_STYLES = [
+  { value: "elevated", label: "مرفوع / Elevated" },
+  { value: "flat", label: "مسطّح / Flat" },
+  { value: "outlined", label: "محدّد / Outlined" },
+  { value: "glass", label: "زجاجي / Glass" },
+  { value: "none", label: "بدون بطاقة / None" },
+] as const
+
+export const QUESTION_STYLES = [
+  { value: "card", label: "بطاقة لكل سؤال / Card" },
+  { value: "boxed", label: "صندوق ملوّن / Coloured box" },
+  { value: "underline", label: "خط سفلي / Underline" },
+  { value: "flat", label: "بدون إطار / Flat" },
+  { value: "split", label: "سؤال بجانب الجواب / Side by side" },
+] as const
+
+export const HEADER_STYLES = [
+  { value: "banner", label: "بانر فوق البطاقة / Banner" },
+  { value: "overlap", label: "صورة متداخلة / Overlapping" },
+  { value: "hero", label: "غلاف كامل مع العنوان / Hero" },
+  { value: "minimal", label: "بدون غلاف / Minimal" },
+] as const
+
+export const BUTTON_STYLES = [
+  { value: "solid", label: "ممتلئ / Solid" },
+  { value: "gradient", label: "متدرّج / Gradient" },
+  { value: "outline", label: "مفرّغ / Outline" },
+  { value: "soft", label: "خفيف / Soft" },
+  { value: "glow", label: "متوهّج / Glow" },
+] as const
+
+export const TITLE_SIZES = [
+  { value: "sm", label: "صغير", css: "1.5rem" },
+  { value: "md", label: "متوسط", css: "1.875rem" },
+  { value: "lg", label: "كبير", css: "2.35rem" },
+  { value: "xl", label: "ضخم", css: "3rem" },
+] as const
+
+export const FONT_OPTIONS = [
+  { value: "geist", label: "Geist — الافتراضي", stack: "'Geist Variable', system-ui, sans-serif" },
+  { value: "cairo", label: "Cairo — عربي حديث", stack: "'Cairo', 'Geist Variable', sans-serif" },
+  { value: "tajawal", label: "Tajawal — عربي مريح", stack: "'Tajawal', 'Geist Variable', sans-serif" },
+  { value: "rubik", label: "Rubik — عربي عريض", stack: "'Rubik', 'Geist Variable', sans-serif" },
+  {
+    value: "ibmarabic",
+    label: "IBM Plex Sans Arabic",
+    stack: "'IBM Plex Sans Arabic', 'Geist Variable', sans-serif",
+  },
+  { value: "almarai", label: "Almarai — واضح", stack: "'Almarai', 'Geist Variable', sans-serif" },
+  { value: "system", label: "خط النظام / System", stack: "system-ui, -apple-system, sans-serif" },
+] as const
+
+/** Google Fonts families pulled in on the public page when selected. */
+export const FONT_GOOGLE_FAMILY: Record<string, string | null> = {
+  geist: null,
+  system: null,
+  cairo: "Cairo:wght@300;400;500;600;700",
+  tajawal: "Tajawal:wght@300;400;500;700",
+  rubik: "Rubik:wght@300;400;500;600;700",
+  ibmarabic: "IBM+Plex+Sans+Arabic:wght@300;400;500;600;700",
+  almarai: "Almarai:wght@300;400;700",
+}
+
+export const RADIUS_OPTIONS = [
+  { value: "none", label: "حواف حادة" },
+  { value: "sm", label: "خفيف" },
+  { value: "md", label: "متوسط" },
+  { value: "lg", label: "كبير" },
+  { value: "xl", label: "أكبر" },
+  { value: "2xl", label: "دائري جداً" },
+] as const
+
+export const RADIUS_PX: Record<string, string> = {
+  none: "0px",
+  sm: "6px",
+  md: "10px",
+  lg: "14px",
+  xl: "20px",
+  "2xl": "28px",
+  pill: "9999px",
+}
+
+export const SHADOW_OPTIONS = [
+  { value: "none", label: "بدون ظل" },
+  { value: "sm", label: "ظل خفيف" },
+  { value: "md", label: "ظل متوسط" },
+  { value: "lg", label: "ظل كبير" },
+  { value: "xl", label: "ظل ناعم واسع" },
+  { value: "glow", label: "توهّج بلون الفورم" },
+] as const
+
+export const SHADOWS: Record<string, string> = {
+  none: "none",
+  sm: "0 1px 2px rgb(15 23 42 / 0.06)",
+  md: "0 6px 16px -4px rgb(15 23 42 / 0.10)",
+  lg: "0 18px 40px -12px rgb(15 23 42 / 0.18)",
+  xl: "0 32px 70px -20px rgb(15 23 42 / 0.28)",
+  glow: "0 0 0 1px rgb(255 255 255 / 0.5), 0 30px 80px -24px var(--lrc-accent)",
+}
+
+export const COVER_HEIGHT_OPTIONS = [
+  { value: "none", label: "بدون صورة" },
+  { value: "sm", label: "صغيرة" },
+  { value: "md", label: "متوسطة" },
+  { value: "lg", label: "كبيرة" },
+  { value: "hero", label: "ضخمة (تملأ أعلى الصفحة)" },
+] as const
+
+export const COVER_HEIGHTS: Record<string, string> = {
+  none: "0rem",
+  sm: "10rem",
+  md: "16rem",
+  lg: "22rem",
+  hero: "30rem",
+}
+
+export const DENSITY_GAP: Record<string, string> = {
+  compact: "0.75rem",
+  comfortable: "1.25rem",
+  airy: "2rem",
+}
+
+/* ------------------------------------------------------------------ */
+/* Presets — a one-click starting point that anything can be tweaked from */
+/* ------------------------------------------------------------------ */
+
+export interface DesignPreset {
+  value: string
+  label: string
+  description: string
+  accent: string
+  design: Partial<FormDesign>
+}
+
+export const DESIGN_PRESETS: DesignPreset[] = [
+  {
+    value: "aurora",
+    label: "Aurora",
+    description: "تدرّج أزرق ناعم وبطاقات بيضاء — قريب من هوية المركز",
+    accent: "#2563eb",
+    design: {
+      bgStyle: "mesh",
+      bgFrom: "#eff6ff",
+      bgVia: "#ffffff",
+      bgTo: "#dbeafe",
+      bgPatternColor: "#2563eb",
+      cardStyle: "elevated",
+      cardBg: "#ffffff",
+      cardShadow: "xl",
+      questionStyle: "card",
+      questionBg: "#f8fafc",
+      questionBorderColor: "#e2e8f0",
+      questionTextColor: "#0f172a",
+      radius: "xl",
+      accentGradient: true,
+      accentTo: "#0ea5e9",
+      headingColor: "#0f172a",
+      bodyColor: "#475569",
+      coverHeight: "lg",
+      headerStyle: "banner",
+      buttonStyle: "gradient",
+    },
+  },
+  {
+    value: "sunrise",
+    label: "Sunrise",
+    description: "دافئ وحيوي — برتقالي وذهبي مع صندوق ملوّن لكل سؤال",
+    accent: "#f97316",
+    design: {
+      bgStyle: "glow",
+      bgFrom: "#fff7ed",
+      bgVia: "#fffbeb",
+      bgTo: "#ffedd5",
+      bgPatternColor: "#fb923c",
+      bgPatternOpacity: 22,
+      cardStyle: "elevated",
+      cardBg: "#ffffff",
+      cardShadow: "lg",
+      questionStyle: "boxed",
+      questionBg: "#fff7ed",
+      questionBorderColor: "#fed7aa",
+      questionTextColor: "#431407",
+      radius: "2xl",
+      accentGradient: true,
+      accentTo: "#f59e0b",
+      headingColor: "#431407",
+      bodyColor: "#9a3412",
+      coverHeight: "lg",
+      headerStyle: "overlap",
+      buttonStyle: "gradient",
+    },
+  },
+  {
+    value: "midnight",
+    label: "Midnight",
+    description: "داكن وأنيق — بطاقة زجاجية على كحلي مع توهّج",
+    accent: "#38bdf8",
+    design: {
+      bgStyle: "glow",
+      bgFrom: "#020617",
+      bgVia: "#0b1220",
+      bgTo: "#0f172a",
+      bgPatternColor: "#38bdf8",
+      bgPatternOpacity: 26,
+      cardStyle: "glass",
+      cardBg: "#0f172a",
+      cardOpacity: 72,
+      cardBorderColor: "#1e293b",
+      cardShadow: "glow",
+      questionStyle: "boxed",
+      questionBg: "#111c33",
+      questionBorderColor: "#1e293b",
+      questionTextColor: "#e2e8f0",
+      headingColor: "#f8fafc",
+      bodyColor: "#94a3b8",
+      radius: "xl",
+      accentGradient: true,
+      accentTo: "#818cf8",
+      coverHeight: "lg",
+      headerStyle: "hero",
+      buttonStyle: "glow",
+    },
+  },
+  {
+    value: "mint",
+    label: "Mint",
+    description: "أخضر هادئ ونظيف — خطوط سفلية بدل الصناديق",
+    accent: "#059669",
+    design: {
+      bgStyle: "dots",
+      bgFrom: "#ecfdf5",
+      bgVia: "#f0fdfa",
+      bgTo: "#d1fae5",
+      bgPatternColor: "#059669",
+      cardStyle: "outlined",
+      cardBg: "#ffffff",
+      cardBorderColor: "#a7f3d0",
+      cardShadow: "md",
+      questionStyle: "underline",
+      questionBg: "#ffffff",
+      questionBorderColor: "#a7f3d0",
+      questionTextColor: "#064e3b",
+      radius: "lg",
+      accentGradient: true,
+      accentTo: "#14b8a6",
+      headingColor: "#064e3b",
+      bodyColor: "#047857",
+      coverHeight: "md",
+      headerStyle: "banner",
+      buttonStyle: "solid",
+    },
+  },
+  {
+    value: "paper",
+    label: "Paper",
+    description: "بسيط جداً وواضح — ورق أبيض وتباعد مريح",
+    accent: "#0f172a",
+    design: {
+      bgStyle: "solid",
+      bgFrom: "#f8fafc",
+      bgVia: "#f8fafc",
+      bgTo: "#f8fafc",
+      cardStyle: "flat",
+      cardBg: "#ffffff",
+      cardShadow: "none",
+      questionStyle: "flat",
+      questionBg: "transparent",
+      questionAccentBar: false,
+      questionTextColor: "#0f172a",
+      radius: "md",
+      accentGradient: false,
+      headingColor: "#0f172a",
+      bodyColor: "#64748b",
+      coverHeight: "sm",
+      headerStyle: "minimal",
+      density: "airy",
+      buttonStyle: "solid",
+    },
+  },
+  {
+    value: "grape",
+    label: "Grape",
+    description: "بنفسجي جريء على شبكة خفيفة",
+    accent: "#7c3aed",
+    design: {
+      bgStyle: "grid",
+      bgFrom: "#faf5ff",
+      bgVia: "#f5f3ff",
+      bgTo: "#ede9fe",
+      bgPatternColor: "#7c3aed",
+      cardStyle: "elevated",
+      cardBg: "#ffffff",
+      cardShadow: "xl",
+      questionStyle: "card",
+      questionBg: "#faf5ff",
+      questionBorderColor: "#ddd6fe",
+      questionTextColor: "#2e1065",
+      radius: "2xl",
+      accentGradient: true,
+      accentTo: "#ec4899",
+      headingColor: "#2e1065",
+      bodyColor: "#6d28d9",
+      coverHeight: "lg",
+      headerStyle: "overlap",
+      buttonStyle: "gradient",
+    },
+  },
+  {
+    value: "sand",
+    label: "Sand",
+    description: "ترابي وهادئ — بيج وخطوط مائلة",
+    accent: "#b45309",
+    design: {
+      bgStyle: "stripes",
+      bgFrom: "#fefce8",
+      bgVia: "#fef9c3",
+      bgTo: "#fef3c7",
+      bgPatternColor: "#b45309",
+      bgPatternOpacity: 6,
+      cardStyle: "outlined",
+      cardBg: "#fffdf7",
+      cardBorderColor: "#fde68a",
+      cardShadow: "md",
+      questionStyle: "split",
+      questionBg: "#fffbeb",
+      questionBorderColor: "#fde68a",
+      questionTextColor: "#451a03",
+      radius: "lg",
+      accentGradient: false,
+      headingColor: "#451a03",
+      bodyColor: "#78350f",
+      coverHeight: "md",
+      headerStyle: "banner",
+      buttonStyle: "solid",
+    },
+  },
+  {
+    value: "ocean",
+    label: "Ocean",
+    description: "أمواج زرقاء وبطاقة زجاجية — حديث وحيوي",
+    accent: "#0284c7",
+    design: {
+      bgStyle: "waves",
+      bgFrom: "#0c4a6e",
+      bgVia: "#0369a1",
+      bgTo: "#0ea5e9",
+      bgPatternColor: "#ffffff",
+      bgPatternOpacity: 30,
+      cardStyle: "glass",
+      cardBg: "#ffffff",
+      cardOpacity: 94,
+      cardBorderColor: "#bae6fd",
+      cardShadow: "xl",
+      questionStyle: "card",
+      questionBg: "#f0f9ff",
+      questionBorderColor: "#bae6fd",
+      questionTextColor: "#0c4a6e",
+      radius: "2xl",
+      accentGradient: true,
+      accentTo: "#06b6d4",
+      headingColor: "#0c4a6e",
+      bodyColor: "#0369a1",
+      coverHeight: "hero",
+      headerStyle: "hero",
+      buttonStyle: "gradient",
+    },
+  },
+]
+
+/* ------------------------------------------------------------------ */
+/* Resolution + computed styles                                        */
+/* ------------------------------------------------------------------ */
+
+export function resolveDesign(design: FormDesign | null | undefined): Required<FormDesign> {
+  return { ...DEFAULT_DESIGN, ...(design ?? {}) }
+}
+
+export function applyPreset(preset: DesignPreset): Required<FormDesign> {
+  return { ...DEFAULT_DESIGN, ...preset.design, preset: preset.value }
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = (hex || "#000000").replace("#", "")
+  const full =
+    clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean.padEnd(6, "0").slice(0, 6)
+  const n = Number.parseInt(full, 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+export function rgba(hex: string, alpha: number) {
+  const [r, g, b] = hexToRgb(hex)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/** Readable text colour (near-black or white) for a given background. */
+export function contrastText(hex: string) {
+  const [r, g, b] = hexToRgb(hex)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? "#0f172a" : "#ffffff"
+}
+
+/** The page background behind the form card. */
+export function backgroundLayers(d: Required<FormDesign>): CSSProperties {
+  const pattern = rgba(d.bgPatternColor, d.bgPatternOpacity / 100)
+  const base = `linear-gradient(${d.bgAngle}deg, ${d.bgFrom}, ${d.bgVia}, ${d.bgTo})`
+
+  switch (d.bgStyle) {
+    case "solid":
+      return { background: d.bgFrom }
+    case "gradient":
+      return { background: base }
+    case "mesh":
+      return {
+        background: [
+          `radial-gradient(at 15% 8%, ${rgba(d.bgVia, 0.95)} 0px, transparent 55%)`,
+          `radial-gradient(at 85% 4%, ${rgba(d.bgTo, 0.85)} 0px, transparent 50%)`,
+          `radial-gradient(at 78% 92%, ${rgba(d.bgFrom, 0.9)} 0px, transparent 55%)`,
+          `radial-gradient(at 8% 88%, ${rgba(d.bgTo, 0.65)} 0px, transparent 50%)`,
+          base,
+        ].join(", "),
+      }
+    case "dots":
+      return {
+        background: `radial-gradient(${pattern} 1.5px, transparent 1.6px), ${base}`,
+        backgroundSize: "22px 22px, auto",
+      }
+    case "grid":
+      return {
+        background: [
+          `linear-gradient(${pattern} 1px, transparent 1px)`,
+          `linear-gradient(90deg, ${pattern} 1px, transparent 1px)`,
+          base,
+        ].join(", "),
+        backgroundSize: "36px 36px, 36px 36px, auto",
+      }
+    case "stripes":
+      return {
+        background: `repeating-linear-gradient(45deg, ${pattern} 0 10px, transparent 10px 26px), ${base}`,
+      }
+    case "waves":
+      return {
+        background: [
+          `radial-gradient(130% 55% at 50% 105%, ${rgba(d.bgPatternColor, 0.16)} 0%, transparent 62%)`,
+          `radial-gradient(95% 45% at 18% -5%, ${rgba(d.bgPatternColor, 0.13)} 0%, transparent 60%)`,
+          `radial-gradient(95% 45% at 88% 30%, ${rgba(d.bgPatternColor, 0.1)} 0%, transparent 60%)`,
+          base,
+        ].join(", "),
+      }
+    case "rings":
+      return {
+        background: `repeating-radial-gradient(circle at 50% 0%, ${pattern} 0 1px, transparent 1px 46px), ${base}`,
+      }
+    case "glow":
+      // the coloured blobs are drawn as elements on top; the base stays flat
+      return { background: base }
+    case "image":
+      return d.bgImageUrl
+        ? {
+            backgroundImage: `linear-gradient(${d.bgAngle}deg, ${rgba(
+              d.bgFrom,
+              d.bgImageOverlay / 100
+            )}, ${rgba(d.bgTo, d.bgImageOverlay / 100)}), url(${d.bgImageUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }
+        : { background: base }
+    default:
+      return { background: base }
+  }
+}
+
+export function cardStyleProps(d: Required<FormDesign>): CSSProperties {
+  const radius = RADIUS_PX[d.radius] ?? RADIUS_PX.xl
+  const bg = d.cardOpacity >= 100 ? d.cardBg : rgba(d.cardBg, d.cardOpacity / 100)
+
+  switch (d.cardStyle) {
+    case "flat":
+      return { background: bg, borderRadius: radius, boxShadow: "none" }
+    case "outlined":
+      return {
+        background: bg,
+        borderRadius: radius,
+        border: `1.5px solid ${d.cardBorderColor}`,
+        boxShadow: SHADOWS[d.cardShadow] ?? "none",
+      }
+    case "glass":
+      return {
+        background: rgba(d.cardBg, Math.min(d.cardOpacity, 88) / 100),
+        borderRadius: radius,
+        border: `1px solid ${rgba(d.cardBorderColor, 0.65)}`,
+        boxShadow: SHADOWS[d.cardShadow] ?? SHADOWS.xl,
+        backdropFilter: "blur(18px)",
+        WebkitBackdropFilter: "blur(18px)",
+      }
+    case "none":
+      return { background: "transparent", borderRadius: radius, boxShadow: "none" }
+    default:
+      return { background: bg, borderRadius: radius, boxShadow: SHADOWS[d.cardShadow] ?? SHADOWS.xl }
+  }
+}
+
+export function questionStyleProps(d: Required<FormDesign>, accent: string): CSSProperties {
+  const radius = RADIUS_PX[d.radius] ?? RADIUS_PX.xl
+  const inner = `calc(${radius} * 0.72)`
+
+  switch (d.questionStyle) {
+    case "boxed":
+      return {
+        background: d.questionBg,
+        border: `1px solid ${d.questionBorderColor}`,
+        borderRadius: inner,
+        padding: "1rem 1.15rem",
+      }
+    case "underline":
+      return {
+        background: "transparent",
+        borderBottom: `1.5px solid ${d.questionBorderColor}`,
+        borderRadius: "0",
+        padding: "0 0 1.1rem",
+      }
+    case "flat":
+      return { background: "transparent", padding: "0" }
+    case "split":
+      return {
+        background: d.questionBg,
+        border: `1px solid ${d.questionBorderColor}`,
+        borderRadius: inner,
+        padding: "1rem 1.15rem",
+      }
+    default:
+      return {
+        background: d.questionBg,
+        border: `1px solid ${d.questionBorderColor}`,
+        borderRadius: inner,
+        padding: "1.15rem 1.25rem",
+        boxShadow: d.questionAccentBar ? `inset -3px 0 0 0 ${accent}` : undefined,
+      }
+  }
+}
+
+/** True when a colour is dark enough that white text reads better on it. */
+export function isDark(hex: string) {
+  return contrastText(hex) === "#ffffff"
+}
+
+/**
+ * Inputs have to sit on whatever surface the question block ended up with.
+ * On a light form that is plain white; on a dark one a bright white box is
+ * blinding, so the input borrows the surface and lightens slightly instead.
+ */
+export function inputSurface(d: Required<FormDesign>) {
+  const surface =
+    d.questionStyle === "flat" || d.questionStyle === "underline" || d.questionBg === "transparent"
+      ? d.cardBg
+      : d.questionBg
+
+  if (!isDark(surface)) {
+    return { background: "#ffffff", color: "#0f172a", placeholder: "#94a3b8" }
+  }
+  return {
+    background: rgba("#ffffff", 0.07),
+    color: "#f1f5f9",
+    placeholder: rgba("#f1f5f9", 0.45),
+  }
+}
+
+export function accentBackground(d: Required<FormDesign>, accent: string) {
+  return d.accentGradient ? `linear-gradient(135deg, ${accent}, ${d.accentTo})` : accent
+}
+
+export function submitButtonProps(d: Required<FormDesign>, accent: string): CSSProperties {
+  const radius = RADIUS_PX[d.buttonRadius] ?? RADIUS_PX.xl
+  const base: CSSProperties = {
+    borderRadius: radius,
+    width: d.buttonWidth === "full" ? "100%" : undefined,
+    minWidth: d.buttonWidth === "full" ? undefined : "12rem",
+  }
+
+  switch (d.buttonStyle) {
+    case "gradient":
+      return {
+        ...base,
+        background: `linear-gradient(135deg, ${accent}, ${d.accentTo})`,
+        color: "#ffffff",
+        boxShadow: `0 14px 30px -12px ${rgba(accent, 0.8)}`,
+      }
+    case "outline":
+      return {
+        ...base,
+        background: "transparent",
+        color: accent,
+        border: `2px solid ${accent}`,
+      }
+    case "soft":
+      return { ...base, background: rgba(accent, 0.14), color: accent, border: "none" }
+    case "glow":
+      return {
+        ...base,
+        background: accent,
+        color: contrastText(accent),
+        boxShadow: `0 0 0 1px ${rgba(accent, 0.5)}, 0 0 44px -6px ${accent}`,
+      }
+    default:
+      return { ...base, background: accent, color: contrastText(accent) }
+  }
+}
+
+export function fontStack(font: string) {
+  return FONT_OPTIONS.find((f) => f.value === font)?.stack ?? FONT_OPTIONS[0].stack
+}
+
+export function maxWidthFor(width: string) {
+  return WIDTH_OPTIONS.find((w) => w.value === width)?.px ?? "58rem"
+}
+
+export function titleSizeFor(size: string) {
+  return TITLE_SIZES.find((t) => t.value === size)?.css ?? "2.35rem"
+}
+
+/**
+ * Strips anything executable out of an uploaded HTML skin. Admins upload
+ * these, but the result is rendered on a page anonymous visitors see, so a
+ * careless paste must never become a script on a public URL.
+ */
+export function sanitizeHtml(html: string) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<script[^>]*>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[^>]*>/gi, "")
+    .replace(/<link[^>]*>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/javascript:/gi, "")
+}
+
+/** Keeps a pasted stylesheet from escaping into an import or an expression. */
+export function sanitizeCss(css: string) {
+  return css
+    .replace(/@import[^;]*;/gi, "")
+    .replace(/expression\s*\(/gi, "(")
+    .replace(/javascript:/gi, "")
+    .replace(/<\/?[a-z][\s\S]*?>/gi, "")
+}
+
+/** Pulls the <style> blocks and the visible markup out of an uploaded file. */
+export function splitUploadedHtml(raw: string): { css: string; html: string } {
+  const css: string[] = []
+  let rest = raw.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_match, body: string) => {
+    css.push(String(body).trim())
+    return ""
+  })
+
+  const bodyMatch = rest.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+  if (bodyMatch) rest = bodyMatch[1]
+
+  rest = rest
+    .replace(/<!DOCTYPE[^>]*>/gi, "")
+    .replace(/<\/?html[^>]*>/gi, "")
+    .replace(/<head[\s\S]*?<\/head>/gi, "")
+    .replace(/<\/?body[^>]*>/gi, "")
+
+  return { css: sanitizeCss(css.join("\n\n")), html: sanitizeHtml(rest).trim() }
+}
+
+/** The class hooks a custom skin can target — shown in the designer. */
+export const SKIN_HOOKS = [
+  { name: ".lrc-page", what: "الصفحة كاملة / the whole page" },
+  { name: ".lrc-card", what: "بطاقة الفورم / the form card" },
+  { name: ".lrc-cover", what: "صورة الغلاف / the cover image" },
+  { name: ".lrc-title", what: "عنوان الفورم / the title" },
+  { name: ".lrc-desc", what: "الوصف تحت العنوان / the description" },
+  { name: ".lrc-question", what: "بلوك السؤال / one question block" },
+  { name: ".lrc-label", what: "نص السؤال / a question label" },
+  { name: ".lrc-input", what: "كل حقول الإدخال / every input" },
+  { name: ".lrc-submit", what: "زر الإرسال / the submit button" },
+  { name: ".lrc-header", what: "الماركب المرفوع / your uploaded markup" },
+]
+
+/** A starter skin an admin can download, edit and upload back. */
+export function starterSkinHtml(title: string) {
+  const hooks = SKIN_HOOKS.map((h) => `       ${h.name.padEnd(15)} ${h.what}`).join("\n")
+  return `<!--
+  LRC form skin for "${title}".
+  Edit the CSS below and upload this file back into the form designer.
+  Anything in <style> becomes the form's custom CSS; the markup after it is
+  rendered above the questions. Scripts are removed on upload.
+
+  Class hooks you can style:
+${hooks}
+-->
+<style>
+  .lrc-card {
+    /* example: a thicker top edge in the centre's blue */
+    border-top: 6px solid #2563eb;
+  }
+
+  .lrc-title {
+    letter-spacing: -0.02em;
+  }
+
+  .lrc-question {
+    transition: transform 0.15s ease;
+  }
+
+  .lrc-question:hover {
+    transform: translateY(-1px);
+  }
+</style>
+
+<div class="lrc-header" style="text-align:center; padding-bottom:8px">
+  <strong>${title}</strong>
+</div>
+`
+}
