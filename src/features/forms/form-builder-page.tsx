@@ -186,7 +186,7 @@ export function FormBuilderPage() {
   /** What the preview renders: the real questions, or a sample set while empty. */
   const previewForm = useMemo(
     () => ({
-      title: title || "عنوان النموذج",
+      title: title || "Untitled form",
       description: description || null,
       accent_color: accentColor,
       cover_image_url: coverPreview ?? coverImageUrl,
@@ -336,15 +336,15 @@ export function FormBuilderPage() {
             <TabsList className="w-full">
               <TabsTrigger value="questions" className="flex-1">
                 <GripVertical className="size-4" />
-                الأسئلة
+                Questions
               </TabsTrigger>
               <TabsTrigger value="design" className="flex-1">
                 <Palette className="size-4" />
-                التصميم
+                Design
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex-1">
                 <Settings2 className="size-4" />
-                الإعدادات
+                Settings
               </TabsTrigger>
             </TabsList>
 
@@ -534,9 +534,9 @@ export function FormBuilderPage() {
             <TabsContent value="design" className="pt-3">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">تصميم الفورم</CardTitle>
+                  <CardTitle className="text-base">Form design</CardTitle>
                   <CardDescription>
-                    كل تعديل بتعمله بتشوفه فوراً بالمعاينة على اليمين.
+                    Every change shows up in the live preview straight away.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -562,7 +562,7 @@ export function FormBuilderPage() {
                 <CardHeader>
                   <CardTitle className="text-base">Cover image</CardTitle>
                   <CardDescription>
-                    Its size on the page is set under التصميم → الغلاف.
+                    How big it appears is set under Design → Cover.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2">
@@ -745,7 +745,7 @@ export function FormBuilderPage() {
             <div className="flex items-center justify-between gap-2">
               <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Eye className="size-4" />
-                معاينة مباشرة
+                Live preview
               </p>
               <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
                 <Button
@@ -790,7 +790,7 @@ export function FormBuilderPage() {
 
             {!fields.some((f) => f.label.trim()) && (
               <p className="text-center text-xs text-muted-foreground">
-                هاي أسئلة تجريبية — أضف أسئلتك من تبويب «الأسئلة».
+                These are sample questions — add your own from the Questions tab.
               </p>
             )}
           </div>

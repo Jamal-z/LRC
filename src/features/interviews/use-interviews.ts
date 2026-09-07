@@ -19,14 +19,14 @@ import type {
  * became the free-text `languages` field — stars said nothing useful there.
  */
 export const INTERVIEW_CRITERIA = [
-  { key: "communication", label: "التواصل / Communication", hint: "يحكي بوضوح وبسمع منيح" },
-  { key: "english", label: "الإنجليزي / English", hint: "مستواه بالإنجليزي" },
-  { key: "creativity", label: "الإبداع / Creativity", hint: "بيجيب أفكار من عنده" },
-  { key: "talent", label: "المهارات / Talent", hint: "تصميم، تصوير، تعليم، كتابة…" },
-  { key: "commitment", label: "الالتزام / Commitment", hint: "قدّيش متوقع نعتمد عليه" },
-  { key: "availability", label: "الوقت المتاح / Availability", hint: "فراغه بيناسب نشاطاتنا" },
-  { key: "teamwork", label: "العمل الجماعي / Teamwork", hint: "مرتاح بالشغل ضمن فريق" },
-  { key: "motivation", label: "الدافع / Motivation", hint: "ليش بدو يتطوع معنا" },
+  { key: "communication", label: "Communication", hint: "Speaks clearly and listens well" },
+  { key: "english", label: "English", hint: "Their level of English" },
+  { key: "creativity", label: "Creativity", hint: "Brings ideas of their own" },
+  { key: "talent", label: "Talent / skills", hint: "Design, photography, teaching, writing…" },
+  { key: "commitment", label: "Commitment", hint: "How dependable they are likely to be" },
+  { key: "availability", label: "Availability", hint: "Free time that matches our activities" },
+  { key: "teamwork", label: "Teamwork", hint: "Comfortable working with a group" },
+  { key: "motivation", label: "Motivation", hint: "Why they want to volunteer with us" },
 ] as const
 
 export type InterviewCriterionKey = (typeof INTERVIEW_CRITERIA)[number]["key"]
@@ -249,7 +249,7 @@ export function useFormApplicants(formId: string | undefined) {
           responseStatus: response.status,
           mapped,
           answers,
-          fullName: mapped.full_name || "بدون اسم / No name",
+          fullName: mapped.full_name || "(no name given)",
           interviewId: interviewByResponse.get(response.id) ?? null,
         }
       })
@@ -293,7 +293,7 @@ export function useFormApplicant(responseId: string | undefined) {
         responseStatus: row.status,
         mapped,
         answers,
-        fullName: mapped.full_name || "بدون اسم / No name",
+        fullName: mapped.full_name || "(no name given)",
         interviewId: null,
       }
     },

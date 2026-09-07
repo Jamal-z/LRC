@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { CheckCircle2, ChevronLeft, FileText, Inbox, Search, UserRoundPlus } from "lucide-react"
+import { CheckCircle2, ChevronRight, FileText, Inbox, Search, UserRoundPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -44,8 +44,8 @@ export function InterviewApplicants() {
       <Card>
         <CardContent className="p-0">
           <EmptyState
-            title="ما في طلبات بعد"
-            description="لما حدا يعبّي نموذج تقديم، رح يطلع هون جاهز نقابله."
+            title="No applications yet"
+            description="Once someone fills in one of your forms, they show up here ready to interview."
             icon={Inbox}
           />
         </CardContent>
@@ -65,7 +65,7 @@ export function InterviewApplicants() {
   const waiting = (applicants ?? []).filter((a) => !a.interviewId).length
 
   return (
-    <div className="flex flex-col gap-3" dir="rtl">
+    <div className="flex flex-col gap-3">
       {/* which form */}
       <div className="flex flex-wrap gap-2">
         {forms.map((form) => (
@@ -76,7 +76,7 @@ export function InterviewApplicants() {
             className={cn(
               "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors",
               formId === form.id
-                ? "border-primary bg-primary/10 text-primary"
+                ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400/50 dark:bg-blue-500/15 dark:text-blue-300"
                 : "border-border text-muted-foreground hover:bg-accent/50"
             )}
           >
@@ -94,19 +94,21 @@ export function InterviewApplicants() {
           <Search className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="h-10 ps-9"
-            placeholder="دوّر على اسم أو أي جواب…"
+            placeholder="Search a name or any answer…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         {!applicantsLoading && (
           <p className="text-sm text-muted-foreground">
-            {waiting} لسا ما تقابلوا من أصل {applicants?.length ?? 0}
+            <span className="font-semibold text-foreground tabular-nums">{waiting}</span> still to
+            interview out of {applicants?.length ?? 0}
           </p>
         )}
       </div>
 
-      <Card>
+      <Card className="overflow-hidden pt-0">
+        <div className="h-1 w-full bg-gradient-to-r from-blue-600 via-blue-500 to-amber-400" />
         <CardContent className="p-0">
           {applicantsLoading ? (
             <div className="flex flex-col gap-3 p-6">
@@ -116,8 +118,8 @@ export function InterviewApplicants() {
             </div>
           ) : filtered.length === 0 ? (
             <EmptyState
-              title="ما في نتائج"
-              description="جرّب تغيّر النموذج أو كلمة البحث."
+              title="No matches"
+              description="Try another form or a different search term."
               icon={Inbox}
             />
           ) : (
@@ -137,20 +139,20 @@ export function InterviewApplicants() {
                           ? `/interviews/${applicant.interviewId}`
                           : `/interviews/new?from=${applicant.responseId}`
                       }
-                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40"
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-blue-50/60 dark:hover:bg-blue-500/10"
                     >
                       <span
                         className={cn(
                           "grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold",
                           applicant.interviewId
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                            : "bg-primary/10 text-primary"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
                         )}
                       >
                         {applicant.interviewId ? (
                           <CheckCircle2 className="size-4.5" />
                         ) : (
-                          applicant.fullName.trim().charAt(0) || "؟"
+                          applicant.fullName.trim().charAt(0).toUpperCase() || "?"
                         )}
                       </span>
 
@@ -169,16 +171,16 @@ export function InterviewApplicants() {
 
                       {applicant.interviewId ? (
                         <Badge variant="secondary" className="shrink-0">
-                          تمّت المقابلة
+                          Interviewed
                         </Badge>
                       ) : (
                         <Button size="sm" className="pointer-events-none shrink-0">
                           <UserRoundPlus className="size-3.5" />
-                          ابدأ المقابلة
+                          Start interview
                         </Button>
                       )}
 
-                      <ChevronLeft className="size-4 shrink-0 text-muted-foreground" />
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                     </Link>
                   </li>
                 )

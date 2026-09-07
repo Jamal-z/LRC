@@ -148,8 +148,8 @@ export function InterviewsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Interviews</h1>
           <p className="text-sm text-muted-foreground">
-            ابدأ من تبويب «المتقدّمون» لتفتح مقابلة معبّاة من الفورم، أو سجّل مقابلة يدويًا. المقبولين
-            بينضمّوا للمتطوّعين بضغطة.
+            Start from Applicants to open an interview already filled in from a form, or record one by
+            hand. Accepted candidates join the roster in one click.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export function InterviewsPage() {
           <TabsList className="flex-wrap">
             <TabsTrigger value="applicants">
               <Inbox className="size-4" />
-              المتقدّمون من الفورمز
+              Applicants
             </TabsTrigger>
             {STATUS_ORDER.map((status) => (
               <TabsTrigger key={status} value={status}>

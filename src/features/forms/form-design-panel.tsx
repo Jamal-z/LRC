@@ -208,18 +208,18 @@ export function FormDesignPanel({
 
   async function handleSkinUpload(file: File) {
     if (file.size > 400_000) {
-      toast.error("الملف كبير — أقصى حجم 400KB")
+      toast.error("That file is too big — 400KB max")
       return
     }
     const raw = await file.text()
     const { css, html } = splitUploadedHtml(raw)
     if (!css && !html) {
-      toast.error("لم نجد أي <style> أو محتوى في الملف")
+      toast.error("No <style> or markup found in that file")
       return
     }
     onCustomCss(css)
     onCustomHeaderHtml(html)
-    toast.success("تم تطبيق التصميم المرفوع — شوف المعاينة")
+    toast.success("Skin applied — check the preview")
   }
 
   function downloadStarter() {
@@ -237,21 +237,21 @@ export function FormDesignPanel({
   return (
     <Tabs defaultValue="presets">
       <TabsList className="w-full flex-wrap">
-        <TabsTrigger value="presets">جاهز</TabsTrigger>
-        <TabsTrigger value="background">الخلفية</TabsTrigger>
-        <TabsTrigger value="card">البطاقة</TabsTrigger>
-        <TabsTrigger value="questions">الأسئلة</TabsTrigger>
-        <TabsTrigger value="type">الخط</TabsTrigger>
-        <TabsTrigger value="header">الغلاف</TabsTrigger>
-        <TabsTrigger value="button">الزر</TabsTrigger>
+        <TabsTrigger value="presets">Presets</TabsTrigger>
+        <TabsTrigger value="background">Background</TabsTrigger>
+        <TabsTrigger value="card">Card</TabsTrigger>
+        <TabsTrigger value="questions">Questions</TabsTrigger>
+        <TabsTrigger value="type">Type</TabsTrigger>
+        <TabsTrigger value="header">Cover</TabsTrigger>
+        <TabsTrigger value="button">Button</TabsTrigger>
         <TabsTrigger value="custom">HTML</TabsTrigger>
       </TabsList>
 
       {/* ---------------- presets ---------------- */}
       <TabsContent value="presets" className="flex flex-col gap-4 pt-3">
         <Section
-          label="تصاميم جاهزة"
-          hint="اختر تصميم كبداية، وبعدها عدّل أي شي فيه من باقي التبويبات."
+          label="Ready-made themes"
+          hint="Pick one as a starting point, then change anything from the other tabs."
         >
           <div className="grid grid-cols-2 gap-2">
             {DESIGN_PRESETS.map((preset) => {
@@ -295,7 +295,7 @@ export function FormDesignPanel({
           </div>
         </Section>
 
-        <Section label="اللون الأساسي" hint="لون الأزرار والأرقام والتفاصيل.">
+        <Section label="Accent colour" hint="Buttons, question numbers and small details.">
           <div className="flex flex-wrap gap-1.5">
             {ACCENT_SWATCHES.map((color) => (
               <button
@@ -315,21 +315,21 @@ export function FormDesignPanel({
             ))}
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <ColorField label="أساسي" value={accentColor} onChange={onAccentColor} />
+            <ColorField label="Accent" value={accentColor} onChange={onAccentColor} />
             <ColorField
-              label="التدرّج"
+              label="Gradient to"
               value={design.accentTo}
               onChange={(v) => onChange({ accentTo: v })}
             />
           </div>
           <ToggleRow
-            label="تدرّج لوني للزر والشريط"
+            label="Gradient on the button and top bar"
             checked={design.accentGradient}
             onChange={(v) => onChange({ accentGradient: v })}
           />
         </Section>
 
-        <Section label="عرض الفورم" hint="أوسع = مساحة أكبر للأسئلة.">
+        <Section label="Form width" hint="Wider gives the questions more room.">
           <ChoiceGrid
             options={WIDTH_OPTIONS.map((w) => ({ value: w.value, label: w.label }))}
             value={design.width}
@@ -337,7 +337,7 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="التباعد بين الأسئلة">
+        <Section label="Spacing between questions">
           <ChoiceGrid
             options={DENSITY_OPTIONS}
             value={design.density}
@@ -346,7 +346,7 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="استدارة الحواف">
+        <Section label="Corner rounding">
           <ChoiceGrid
             options={RADIUS_OPTIONS}
             value={design.radius}
@@ -358,7 +358,7 @@ export function FormDesignPanel({
 
       {/* ---------------- background ---------------- */}
       <TabsContent value="background" className="flex flex-col gap-4 pt-3">
-        <Section label="نمط الخلفية">
+        <Section label="Background style">
           <ChoiceGrid
             options={BG_STYLES}
             value={design.bgStyle}
@@ -366,14 +366,14 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="ألوان الخلفية">
+        <Section label="Background colours">
           <div className="grid gap-2">
-            <ColorField label="من" value={design.bgFrom} onChange={(v) => onChange({ bgFrom: v })} />
-            <ColorField label="الوسط" value={design.bgVia} onChange={(v) => onChange({ bgVia: v })} />
-            <ColorField label="إلى" value={design.bgTo} onChange={(v) => onChange({ bgTo: v })} />
+            <ColorField label="From" value={design.bgFrom} onChange={(v) => onChange({ bgFrom: v })} />
+            <ColorField label="Middle" value={design.bgVia} onChange={(v) => onChange({ bgVia: v })} />
+            <ColorField label="To" value={design.bgTo} onChange={(v) => onChange({ bgTo: v })} />
           </div>
           <SliderField
-            label="زاوية التدرّج"
+            label="Gradient angle"
             value={design.bgAngle}
             onChange={(v) => onChange({ bgAngle: v })}
             max={360}
@@ -381,14 +381,14 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="لون النقش" hint="لون النقاط / الشبكة / الخطوط / الهالات.">
+        <Section label="Pattern colour" hint="Used by dots, grid, stripes and glow.">
           <ColorField
-            label="لون النقش"
+            label="Pattern"
             value={design.bgPatternColor}
             onChange={(v) => onChange({ bgPatternColor: v })}
           />
           <SliderField
-            label="شفافية النقش"
+            label="Pattern opacity"
             value={design.bgPatternOpacity}
             onChange={(v) => onChange({ bgPatternOpacity: v })}
             max={60}
@@ -396,7 +396,7 @@ export function FormDesignPanel({
         </Section>
 
         {design.bgStyle === "image" && (
-          <Section label="صورة الخلفية" hint="الصق رابط صورة (يفضّل عرض 1600px أو أكثر).">
+          <Section label="Background image" hint="Paste an image URL — 1600px wide or more works best.">
             <Input
               dir="ltr"
               placeholder="https://…"
@@ -404,7 +404,7 @@ export function FormDesignPanel({
               onChange={(e) => onChange({ bgImageUrl: e.target.value || null })}
             />
             <SliderField
-              label="تعتيم فوق الصورة"
+              label="Tint over the image"
               value={design.bgImageOverlay}
               onChange={(v) => onChange({ bgImageOverlay: v })}
             />
@@ -414,7 +414,7 @@ export function FormDesignPanel({
 
       {/* ---------------- card ---------------- */}
       <TabsContent value="card" className="flex flex-col gap-4 pt-3">
-        <Section label="شكل البطاقة">
+        <Section label="Card style">
           <ChoiceGrid
             options={CARD_STYLES}
             value={design.cardStyle}
@@ -422,24 +422,24 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="ألوان البطاقة">
+        <Section label="Card colours">
           <div className="grid gap-2">
-            <ColorField label="خلفية" value={design.cardBg} onChange={(v) => onChange({ cardBg: v })} />
+            <ColorField label="Background" value={design.cardBg} onChange={(v) => onChange({ cardBg: v })} />
             <ColorField
-              label="الإطار"
+              label="Border"
               value={design.cardBorderColor}
               onChange={(v) => onChange({ cardBorderColor: v })}
             />
           </div>
           <SliderField
-            label="شفافية البطاقة"
+            label="Card opacity"
             value={design.cardOpacity}
             onChange={(v) => onChange({ cardOpacity: v })}
             min={20}
           />
         </Section>
 
-        <Section label="الظل">
+        <Section label="Shadow">
           <ChoiceGrid
             options={SHADOW_OPTIONS}
             value={design.cardShadow}
@@ -448,20 +448,20 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="لمسات">
+        <Section label="Extras">
           <ToggleRow
-            label="شريط التقدّم"
-            hint="يبيّن قدّيش عبّى من الفورم"
+            label="Progress bar"
+            hint="Shows how much of the form is filled in"
             checked={design.progressBar}
             onChange={(v) => onChange({ progressBar: v })}
           />
           <ToggleRow
-            label="حركات ناعمة"
+            label="Smooth transitions"
             checked={design.animate}
             onChange={(v) => onChange({ animate: v })}
           />
           <ToggleRow
-            label="شعار المركز فوق الفورم"
+            label="Centre logo above the form"
             checked={design.showLogo}
             onChange={(v) => onChange({ showLogo: v })}
           />
@@ -470,7 +470,7 @@ export function FormDesignPanel({
 
       {/* ---------------- questions ---------------- */}
       <TabsContent value="questions" className="flex flex-col gap-4 pt-3">
-        <Section label="شكل منطقة السؤال" hint="هاي المنطقة الي فيها كل سؤال وجوابه.">
+        <Section label="Question block style" hint="The area holding each question and its answer.">
           <ChoiceGrid
             options={QUESTION_STYLES}
             value={design.questionStyle}
@@ -478,20 +478,20 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="ألوان منطقة الأسئلة">
+        <Section label="Question block colours">
           <div className="grid gap-2">
             <ColorField
-              label="خلفية السؤال"
+              label="Question background"
               value={design.questionBg}
               onChange={(v) => onChange({ questionBg: v })}
             />
             <ColorField
-              label="إطار السؤال"
+              label="Question border"
               value={design.questionBorderColor}
               onChange={(v) => onChange({ questionBorderColor: v })}
             />
             <ColorField
-              label="لون نص السؤال"
+              label="Question text"
               value={design.questionTextColor}
               onChange={(v) => onChange({ questionTextColor: v })}
             />
@@ -521,15 +521,15 @@ export function FormDesignPanel({
           </div>
         </Section>
 
-        <Section label="تفاصيل">
+        <Section label="Details">
           <ToggleRow
-            label="ترقيم الأسئلة"
+            label="Number the questions"
             checked={design.questionNumbers}
             onChange={(v) => onChange({ questionNumbers: v })}
           />
           <ToggleRow
-            label="شريط ملوّن على حافة السؤال"
-            hint="يشتغل مع نمط «بطاقة لكل سؤال»"
+            label="Accent bar on the question edge"
+            hint="Applies to the card-per-question style"
             checked={design.questionAccentBar}
             onChange={(v) => onChange({ questionAccentBar: v })}
           />
@@ -538,7 +538,7 @@ export function FormDesignPanel({
 
       {/* ---------------- typography ---------------- */}
       <TabsContent value="type" className="flex flex-col gap-4 pt-3">
-        <Section label="الخط" hint="خطوط عربية مريحة للقراءة على الموبايل.">
+        <Section label="Font" hint="Arabic faces that stay readable on a phone.">
           <div className="flex flex-col gap-1.5">
             {FONT_OPTIONS.map((font) => (
               <button
@@ -559,7 +559,7 @@ export function FormDesignPanel({
           </div>
         </Section>
 
-        <Section label="حجم العنوان">
+        <Section label="Title size">
           <ChoiceGrid
             options={TITLE_SIZES.map((t) => ({ value: t.value, label: t.label }))}
             value={design.titleSize}
@@ -568,24 +568,24 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="ألوان النص">
+        <Section label="Text colours">
           <div className="grid gap-2">
             <ColorField
-              label="العنوان"
+              label="Headings"
               value={design.headingColor}
               onChange={(v) => onChange({ headingColor: v })}
             />
             <ColorField
-              label="النص العادي"
+              label="Body text"
               value={design.bodyColor}
               onChange={(v) => onChange({ bodyColor: v })}
             />
           </div>
         </Section>
 
-        <Section label="نص أسفل الفورم" hint="اتركه فاضي ليضل التوقيع الافتراضي.">
+        <Section label="Footer note" hint="Leave empty to keep the default signature.">
           <Input
-            placeholder="مثلاً: لأي استفسار تواصل معنا على…"
+            placeholder="e.g. Any questions? Reach us at…"
             value={design.footerNote}
             onChange={(e) => onChange({ footerNote: e.target.value })}
           />
@@ -594,7 +594,7 @@ export function FormDesignPanel({
 
       {/* ---------------- header / cover ---------------- */}
       <TabsContent value="header" className="flex flex-col gap-4 pt-3">
-        <Section label="طريقة عرض الغلاف">
+        <Section label="Cover layout">
           <ChoiceGrid
             options={HEADER_STYLES}
             value={design.headerStyle}
@@ -602,7 +602,7 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="حجم صورة الغلاف" hint="«ضخمة» بتخلي الصورة تملأ أعلى الصفحة.">
+        <Section label="Cover image size" hint="Huge lets the image fill the top of the page.">
           <ChoiceGrid
             options={COVER_HEIGHT_OPTIONS}
             value={design.coverHeight}
@@ -611,9 +611,9 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="تلوين فوق الصورة">
+        <Section label="Tint over the cover">
           <SliderField
-            label="شفافية اللون فوق الصورة"
+            label="Tint strength"
             value={design.coverOverlay}
             onChange={(v) => onChange({ coverOverlay: v })}
             max={80}
@@ -623,7 +623,7 @@ export function FormDesignPanel({
 
       {/* ---------------- button ---------------- */}
       <TabsContent value="button" className="flex flex-col gap-4 pt-3">
-        <Section label="شكل زر الإرسال">
+        <Section label="Submit button style">
           <ChoiceGrid
             options={BUTTON_STYLES}
             value={design.buttonStyle}
@@ -631,27 +631,27 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="استدارة الزر">
+        <Section label="Button rounding">
           <ChoiceGrid
-            options={[...RADIUS_OPTIONS, { value: "pill" as const, label: "كبسولة" }]}
+            options={[...RADIUS_OPTIONS, { value: "pill" as const, label: "Pill" }]}
             value={design.buttonRadius}
             onChange={(v) => onChange({ buttonRadius: v })}
             columns={3}
           />
         </Section>
 
-        <Section label="عرض الزر">
+        <Section label="Button width">
           <ChoiceGrid
             options={[
-              { value: "full" as const, label: "بعرض الفورم" },
-              { value: "auto" as const, label: "بحجم النص" },
+              { value: "full" as const, label: "Full width" },
+              { value: "auto" as const, label: "Fit to text" },
             ]}
             value={design.buttonWidth}
             onChange={(v) => onChange({ buttonWidth: v })}
           />
         </Section>
 
-        <Section label="نص الزر" hint="اتركه فاضي لـ «إرسال / Submit».">
+        <Section label="Button label" hint="Leave empty for the bilingual default.">
           <Input
             placeholder="إرسال / Submit"
             value={design.buttonLabel}
@@ -663,17 +663,17 @@ export function FormDesignPanel({
       {/* ---------------- custom skin ---------------- */}
       <TabsContent value="custom" className="flex flex-col gap-4 pt-3">
         <Section
-          label="ارفع تصميم HTML جاهز"
-          hint="ارفع ملف .html — بناخد منه الـ <style> والماركب ونطبّقهم فوق التصميم. أي سكربت بينشال لأن الصفحة عامة."
+          label="Upload a ready-made HTML design"
+          hint="Upload an .html file — we take its <style> and markup and apply them on top. Scripts are stripped, because the form page is public."
         >
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => skinInputRef.current?.click()}>
               <Upload className="size-4" />
-              ارفع ملف HTML
+              Upload HTML
             </Button>
             <Button variant="ghost" size="sm" onClick={downloadStarter}>
               <Download className="size-4" />
-              نزّل قالب للبداية
+              Download a starter
             </Button>
             {(customCss || customHeaderHtml) && (
               <Button
@@ -683,11 +683,11 @@ export function FormDesignPanel({
                 onClick={() => {
                   onCustomCss("")
                   onCustomHeaderHtml("")
-                  toast.success("تم مسح التصميم المرفوع")
+                  toast.success("Uploaded skin cleared")
                 }}
               >
                 <Trash2 className="size-4" />
-                امسح
+                Clear
               </Button>
             )}
           </div>
@@ -704,7 +704,7 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="CSS مخصّص" hint="بينطبّق فوق كل الخيارات — آخر كلمة إلك.">
+        <Section label="Custom CSS" hint="Applied on top of every option above — it always wins.">
           <Textarea
             dir="ltr"
             rows={8}
@@ -715,7 +715,7 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="HTML فوق الأسئلة" hint="بيظهر جوّا البطاقة قبل أول سؤال.">
+        <Section label="HTML above the questions" hint="Rendered inside the card, before the first question.">
           <Textarea
             dir="ltr"
             rows={5}
@@ -726,7 +726,7 @@ export function FormDesignPanel({
           />
         </Section>
 
-        <Section label="أسماء الكلاسات الي بتقدر تلوّنها">
+        <Section label="Class hooks you can style">
           <div className="rounded-lg border border-border bg-muted/40 p-2.5">
             <ul className="flex flex-col gap-1">
               {SKIN_HOOKS.map((hook) => (

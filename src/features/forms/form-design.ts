@@ -64,82 +64,82 @@ export const DEFAULT_DESIGN: Required<FormDesign> = {
 /* ------------------------------------------------------------------ */
 
 export const WIDTH_OPTIONS = [
-  { value: "narrow", label: "ضيق / Narrow", px: "36rem" },
-  { value: "normal", label: "عادي / Normal", px: "46rem" },
-  { value: "wide", label: "واسع / Wide", px: "58rem" },
-  { value: "xwide", label: "واسع جداً / Extra wide", px: "72rem" },
-  { value: "full", label: "كامل الشاشة / Full", px: "96rem" },
+  { value: "narrow", label: "Narrow", px: "36rem" },
+  { value: "normal", label: "Normal", px: "46rem" },
+  { value: "wide", label: "Wide", px: "58rem" },
+  { value: "xwide", label: "Extra wide", px: "72rem" },
+  { value: "full", label: "Full width", px: "96rem" },
 ] as const
 
 export const DENSITY_OPTIONS = [
-  { value: "compact", label: "متقارب / Compact" },
-  { value: "comfortable", label: "مريح / Comfortable" },
-  { value: "airy", label: "متباعد / Airy" },
+  { value: "compact", label: "Compact" },
+  { value: "comfortable", label: "Comfortable" },
+  { value: "airy", label: "Airy" },
 ] as const
 
 export const BG_STYLES = [
-  { value: "solid", label: "لون واحد / Solid" },
-  { value: "gradient", label: "تدرّج / Gradient" },
-  { value: "mesh", label: "تدرّج ناعم / Soft mesh" },
-  { value: "dots", label: "نقاط / Dots" },
-  { value: "grid", label: "شبكة / Grid" },
-  { value: "stripes", label: "خطوط مائلة / Stripes" },
-  { value: "waves", label: "أمواج / Waves" },
-  { value: "rings", label: "دوائر / Rings" },
-  { value: "glow", label: "هالات ملونة / Glow" },
-  { value: "image", label: "صورة خلفية / Image" },
+  { value: "solid", label: "Solid" },
+  { value: "gradient", label: "Gradient" },
+  { value: "mesh", label: "Soft mesh" },
+  { value: "dots", label: "Dots" },
+  { value: "grid", label: "Grid" },
+  { value: "stripes", label: "Stripes" },
+  { value: "waves", label: "Waves" },
+  { value: "rings", label: "Rings" },
+  { value: "glow", label: "Glow blobs" },
+  { value: "image", label: "Image" },
 ] as const
 
 export const CARD_STYLES = [
-  { value: "elevated", label: "مرفوع / Elevated" },
-  { value: "flat", label: "مسطّح / Flat" },
-  { value: "outlined", label: "محدّد / Outlined" },
-  { value: "glass", label: "زجاجي / Glass" },
-  { value: "none", label: "بدون بطاقة / None" },
+  { value: "elevated", label: "Elevated" },
+  { value: "flat", label: "Flat" },
+  { value: "outlined", label: "Outlined" },
+  { value: "glass", label: "Glass" },
+  { value: "none", label: "No card" },
 ] as const
 
 export const QUESTION_STYLES = [
-  { value: "card", label: "بطاقة لكل سؤال / Card" },
-  { value: "boxed", label: "صندوق ملوّن / Coloured box" },
-  { value: "underline", label: "خط سفلي / Underline" },
-  { value: "flat", label: "بدون إطار / Flat" },
-  { value: "split", label: "سؤال بجانب الجواب / Side by side" },
+  { value: "card", label: "Card per question" },
+  { value: "boxed", label: "Coloured box" },
+  { value: "underline", label: "Underline" },
+  { value: "flat", label: "No frame" },
+  { value: "split", label: "Side by side" },
 ] as const
 
 export const HEADER_STYLES = [
-  { value: "banner", label: "بانر فوق البطاقة / Banner" },
-  { value: "overlap", label: "صورة متداخلة / Overlapping" },
-  { value: "hero", label: "غلاف كامل مع العنوان / Hero" },
-  { value: "minimal", label: "بدون غلاف / Minimal" },
+  { value: "banner", label: "Banner" },
+  { value: "overlap", label: "Inset image" },
+  { value: "hero", label: "Hero (title over image)" },
+  { value: "minimal", label: "No cover" },
 ] as const
 
 export const BUTTON_STYLES = [
-  { value: "solid", label: "ممتلئ / Solid" },
-  { value: "gradient", label: "متدرّج / Gradient" },
-  { value: "outline", label: "مفرّغ / Outline" },
-  { value: "soft", label: "خفيف / Soft" },
-  { value: "glow", label: "متوهّج / Glow" },
+  { value: "solid", label: "Solid" },
+  { value: "gradient", label: "Gradient" },
+  { value: "outline", label: "Outline" },
+  { value: "soft", label: "Soft" },
+  { value: "glow", label: "Glow" },
 ] as const
 
 export const TITLE_SIZES = [
-  { value: "sm", label: "صغير", css: "1.5rem" },
-  { value: "md", label: "متوسط", css: "1.875rem" },
-  { value: "lg", label: "كبير", css: "2.35rem" },
-  { value: "xl", label: "ضخم", css: "3rem" },
+  { value: "sm", label: "Small", css: "1.5rem" },
+  { value: "md", label: "Medium", css: "1.875rem" },
+  { value: "lg", label: "Large", css: "2.35rem" },
+  { value: "xl", label: "Huge", css: "3rem" },
 ] as const
 
 export const FONT_OPTIONS = [
-  { value: "geist", label: "Geist — الافتراضي", stack: "'Geist Variable', system-ui, sans-serif" },
-  { value: "cairo", label: "Cairo — عربي حديث", stack: "'Cairo', 'Geist Variable', sans-serif" },
-  { value: "tajawal", label: "Tajawal — عربي مريح", stack: "'Tajawal', 'Geist Variable', sans-serif" },
-  { value: "rubik", label: "Rubik — عربي عريض", stack: "'Rubik', 'Geist Variable', sans-serif" },
+  { value: "geist", label: "Geist — default", stack: "'Geist Variable', system-ui, sans-serif" },
+  { value: "cairo", label: "Cairo — modern Arabic", stack: "'Cairo', 'Geist Variable', sans-serif" },
+  { value: "tajawal", label: "Tajawal — easy Arabic", stack: "'Tajawal', 'Geist Variable', sans-serif" },
+  { value: "rubik", label: "Rubik — bold Arabic", stack: "'Rubik', 'Geist Variable', sans-serif" },
   {
     value: "ibmarabic",
     label: "IBM Plex Sans Arabic",
     stack: "'IBM Plex Sans Arabic', 'Geist Variable', sans-serif",
   },
-  { value: "almarai", label: "Almarai — واضح", stack: "'Almarai', 'Geist Variable', sans-serif" },
-  { value: "system", label: "خط النظام / System", stack: "system-ui, -apple-system, sans-serif" },
+  { value: "almarai", label: "Almarai — crisp Arabic", stack: "'Almarai', 'Geist Variable', sans-serif" },
+  { value: "system", label: "System font", stack: "system-ui, -apple-system, sans-serif" },
 ] as const
 
 /** Google Fonts families pulled in on the public page when selected. */
@@ -154,12 +154,12 @@ export const FONT_GOOGLE_FAMILY: Record<string, string | null> = {
 }
 
 export const RADIUS_OPTIONS = [
-  { value: "none", label: "حواف حادة" },
-  { value: "sm", label: "خفيف" },
-  { value: "md", label: "متوسط" },
-  { value: "lg", label: "كبير" },
-  { value: "xl", label: "أكبر" },
-  { value: "2xl", label: "دائري جداً" },
+  { value: "none", label: "Square" },
+  { value: "sm", label: "Slight" },
+  { value: "md", label: "Medium" },
+  { value: "lg", label: "Large" },
+  { value: "xl", label: "Extra large" },
+  { value: "2xl", label: "Very round" },
 ] as const
 
 export const RADIUS_PX: Record<string, string> = {
@@ -173,12 +173,12 @@ export const RADIUS_PX: Record<string, string> = {
 }
 
 export const SHADOW_OPTIONS = [
-  { value: "none", label: "بدون ظل" },
-  { value: "sm", label: "ظل خفيف" },
-  { value: "md", label: "ظل متوسط" },
-  { value: "lg", label: "ظل كبير" },
-  { value: "xl", label: "ظل ناعم واسع" },
-  { value: "glow", label: "توهّج بلون الفورم" },
+  { value: "none", label: "No shadow" },
+  { value: "sm", label: "Subtle" },
+  { value: "md", label: "Medium" },
+  { value: "lg", label: "Large" },
+  { value: "xl", label: "Soft and wide" },
+  { value: "glow", label: "Accent glow" },
 ] as const
 
 export const SHADOWS: Record<string, string> = {
@@ -191,11 +191,11 @@ export const SHADOWS: Record<string, string> = {
 }
 
 export const COVER_HEIGHT_OPTIONS = [
-  { value: "none", label: "بدون صورة" },
-  { value: "sm", label: "صغيرة" },
-  { value: "md", label: "متوسطة" },
-  { value: "lg", label: "كبيرة" },
-  { value: "hero", label: "ضخمة (تملأ أعلى الصفحة)" },
+  { value: "none", label: "No image" },
+  { value: "sm", label: "Small" },
+  { value: "md", label: "Medium" },
+  { value: "lg", label: "Large" },
+  { value: "hero", label: "Huge (fills the top)" },
 ] as const
 
 export const COVER_HEIGHTS: Record<string, string> = {
@@ -228,7 +228,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "aurora",
     label: "Aurora",
-    description: "تدرّج أزرق ناعم وبطاقات بيضاء — قريب من هوية المركز",
+    description: "Soft blue wash with white cards — closest to the centre brand",
     accent: "#2563eb",
     design: {
       bgStyle: "mesh",
@@ -256,7 +256,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "sunrise",
     label: "Sunrise",
-    description: "دافئ وحيوي — برتقالي وذهبي مع صندوق ملوّن لكل سؤال",
+    description: "Warm and lively — orange and gold, a tinted box per question",
     accent: "#f97316",
     design: {
       bgStyle: "glow",
@@ -285,7 +285,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "midnight",
     label: "Midnight",
-    description: "داكن وأنيق — بطاقة زجاجية على كحلي مع توهّج",
+    description: "Dark and sharp — a glass card on navy with a glow",
     accent: "#38bdf8",
     design: {
       bgStyle: "glow",
@@ -316,7 +316,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "mint",
     label: "Mint",
-    description: "أخضر هادئ ونظيف — خطوط سفلية بدل الصناديق",
+    description: "Calm, clean green — underlines instead of boxes",
     accent: "#059669",
     design: {
       bgStyle: "dots",
@@ -345,7 +345,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "paper",
     label: "Paper",
-    description: "بسيط جداً وواضح — ورق أبيض وتباعد مريح",
+    description: "As plain as it gets — white paper, generous spacing",
     accent: "#0f172a",
     design: {
       bgStyle: "solid",
@@ -372,7 +372,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "grape",
     label: "Grape",
-    description: "بنفسجي جريء على شبكة خفيفة",
+    description: "Bold violet over a faint grid",
     accent: "#7c3aed",
     design: {
       bgStyle: "grid",
@@ -400,7 +400,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "sand",
     label: "Sand",
-    description: "ترابي وهادئ — بيج وخطوط مائلة",
+    description: "Earthy and quiet — sand tones and diagonal stripes",
     accent: "#b45309",
     design: {
       bgStyle: "stripes",
@@ -429,7 +429,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     value: "ocean",
     label: "Ocean",
-    description: "أمواج زرقاء وبطاقة زجاجية — حديث وحيوي",
+    description: "Blue waves under a glass card — modern and lively",
     accent: "#0284c7",
     design: {
       bgStyle: "waves",
@@ -758,16 +758,16 @@ export function splitUploadedHtml(raw: string): { css: string; html: string } {
 
 /** The class hooks a custom skin can target — shown in the designer. */
 export const SKIN_HOOKS = [
-  { name: ".lrc-page", what: "الصفحة كاملة / the whole page" },
-  { name: ".lrc-card", what: "بطاقة الفورم / the form card" },
-  { name: ".lrc-cover", what: "صورة الغلاف / the cover image" },
-  { name: ".lrc-title", what: "عنوان الفورم / the title" },
-  { name: ".lrc-desc", what: "الوصف تحت العنوان / the description" },
-  { name: ".lrc-question", what: "بلوك السؤال / one question block" },
-  { name: ".lrc-label", what: "نص السؤال / a question label" },
-  { name: ".lrc-input", what: "كل حقول الإدخال / every input" },
-  { name: ".lrc-submit", what: "زر الإرسال / the submit button" },
-  { name: ".lrc-header", what: "الماركب المرفوع / your uploaded markup" },
+  { name: ".lrc-page", what: "the whole page" },
+  { name: ".lrc-card", what: "the form card" },
+  { name: ".lrc-cover", what: "the cover image" },
+  { name: ".lrc-title", what: "the form title" },
+  { name: ".lrc-desc", what: "the description under it" },
+  { name: ".lrc-question", what: "one question block" },
+  { name: ".lrc-label", what: "a question label" },
+  { name: ".lrc-input", what: "every input" },
+  { name: ".lrc-submit", what: "the submit button" },
+  { name: ".lrc-header", what: "your uploaded markup" },
 ]
 
 /** A starter skin an admin can download, edit and upload back. */

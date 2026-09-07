@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { ArrowLeft, FileText, Save, Sparkles, Star } from "lucide-react"
+import {
+  ArrowLeft,
+  Award,
+  ClipboardList,
+  FileText,
+  Gauge,
+  History,
+  NotebookPen,
+  Save,
+  Sparkles,
+  Star,
+  UserRound,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -32,8 +43,40 @@ import {
 } from "./use-interviews"
 
 /* ------------------------------------------------------------------ */
-/* Star pickers                                                        */
+/* Building blocks                                                     */
 /* ------------------------------------------------------------------ */
+
+/** A titled card with a tinted icon chip, so sections are scannable. */
+function SectionCard({
+  icon: Icon,
+  tint,
+  title,
+  description,
+  children,
+  className,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  tint: string
+  title: string
+  description?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2.5 text-base">
+          <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", tint)}>
+            <Icon className="size-4" />
+          </span>
+          {title}
+        </CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  )
+}
 
 function StarPicker({
   value,
@@ -46,7 +89,7 @@ function StarPicker({
   count?: number
   size?: "md" | "lg"
 }) {
-  const box = size === "lg" ? "size-8" : "size-6"
+  const box = size === "lg" ? "size-7" : "size-5.5"
   return (
     <div className="flex flex-wrap items-center gap-0.5">
       {Array.from({ length: count }, (_, i) => i + 1).map((star) => (
@@ -56,20 +99,20 @@ function StarPicker({
           // clicking the current value again clears it — "we didn't ask this"
           onClick={() => onChange(value === star ? null : star)}
           aria-label={`${star} out of ${count}`}
-          className="transition-transform hover:scale-110"
+          className="transition-transform hover:scale-115"
         >
           <Star
             className={cn(
               box,
               value != null && star <= value
                 ? "fill-amber-400 text-amber-400"
-                : "text-muted-foreground/30 hover:text-amber-300"
+                : "text-muted-foreground/25 hover:text-amber-300"
             )}
           />
         </button>
       ))}
       {value != null && (
-        <span className="ms-1.5 text-xs font-semibold tabular-nums text-muted-foreground">
+        <span className="ms-2 text-xs font-semibold tabular-nums text-amber-600 dark:text-amber-400">
           {value}/{count}
         </span>
       )}
@@ -80,8 +123,8 @@ function StarPicker({
 function YesNoPicker({
   value,
   onChange,
-  yesLabel = "نعم / Yes",
-  noLabel = "لا / No",
+  yesLabel = "Yes",
+  noLabel = "No",
 }: {
   value: boolean | null
   onChange: (value: boolean | null) => void
@@ -91,7 +134,7 @@ function YesNoPicker({
   const options: { key: string; label: string; state: boolean | null }[] = [
     { key: "yes", label: yesLabel, state: true },
     { key: "no", label: noLabel, state: false },
-    { key: "unknown", label: "ما سألنا", state: null },
+    { key: "unknown", label: "Didn't ask", state: null },
   ]
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -101,9 +144,9 @@ function YesNoPicker({
           type="button"
           onClick={() => onChange(option.state)}
           className={cn(
-            "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
+            "rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-colors",
             value === option.state
-              ? "border-primary bg-primary/10 text-primary"
+              ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400/50 dark:bg-blue-500/15 dark:text-blue-300"
               : "border-border text-muted-foreground hover:bg-accent/50"
           )}
         >
@@ -216,6 +259,12 @@ function draftFromApplicant(applicant: FormApplicant): DraftState {
   }
 }
 
+const STATUS_DOT: Record<InterviewStatus, string> = {
+  accepted: "bg-emerald-500",
+  maybe: "bg-amber-500",
+  rejected: "bg-red-500",
+}
+
 /* ------------------------------------------------------------------ */
 
 export function InterviewPage() {
@@ -247,10 +296,11 @@ export function InterviewPage() {
   }
 
   const average = interviewAverage(draft.ratings)
+  const scored = Object.keys(draft.ratings).length
 
   async function handleSave(closeAfter: boolean) {
     if (!draft.full_name.trim()) {
-      setNameError("لازم اسم المتقدّم / The candidate's name is required.")
+      setNameError("The candidate's name is required.")
       window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
@@ -285,77 +335,151 @@ export function InterviewPage() {
         interviewed_by: interview?.interviewed_by ?? profile?.id ?? null,
         interviewed_at: draft.interviewed_at,
       })
-      toast.success(interview ? "تم حفظ التعديلات" : `تم تسجيل مقابلة ${draft.full_name.trim()}`)
+      toast.success(interview ? "Interview updated" : `${draft.full_name.trim()} recorded`)
       if (closeAfter) navigate("/interviews")
       else if (!interview) navigate(`/interviews/${savedId}`, { replace: true })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تعذّر حفظ المقابلة")
+      toast.error(error instanceof Error ? error.message : "Failed to save the interview")
     }
   }
 
   if ((id && isLoading) || (!id && fromResponseId && applicantLoading)) {
     return (
       <div className="flex flex-col gap-4">
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-[32rem] w-full" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
+        <Skeleton className="h-[32rem] w-full rounded-2xl" />
       </div>
     )
   }
 
+  const initial = draft.full_name.trim().charAt(0).toUpperCase() || "?"
+
   return (
-    // a roomier type scale than the rest of the app: this page gets filled in
-    // live while talking to someone, so it has to be easy to scan and type into
-    <div dir="rtl" className="mx-auto flex max-w-5xl flex-col gap-5 text-[15px] leading-relaxed">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" render={<Link to="/interviews" />}>
-            <ArrowLeft className="size-4 rotate-180" />
-            رجوع للمقابلات
-          </Button>
+    // roomier type than the rest of the app: this page is filled in live while
+    // talking to someone, so it has to be easy to scan and type into
+    <div className="mx-auto flex max-w-5xl flex-col gap-4 text-[15px] leading-relaxed">
+      {/* ---------------- header ---------------- */}
+      <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-slate-900 shadow-lg shadow-blue-900/20">
+        <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/15 text-xl font-semibold text-white ring-1 ring-white/25 backdrop-blur">
+              {initial}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-blue-200/80">
+                {interview ? "Interview record" : "New interview"}
+              </p>
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-white">
+                {draft.full_name.trim() || "Untitled candidate"}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white ring-1 ring-white/20">
+                  <span className={cn("size-1.5 rounded-full", STATUS_DOT[draft.status])} />
+                  {INTERVIEW_STATUS_LABELS[draft.status]}
+                </span>
+                {draft.applied_for && (
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white ring-1 ring-white/20">
+                    {draft.applied_for}
+                  </span>
+                )}
+                {draft.overall_rating != null && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/90 px-2.5 py-1 text-xs font-semibold text-amber-950">
+                    <Star className="size-3 fill-amber-950" />
+                    {draft.overall_rating}/10
+                  </span>
+                )}
+                {interview?.form_response_id && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white ring-1 ring-white/20">
+                    <FileText className="size-3" />
+                    From a form
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/15 hover:text-white"
+              render={<Link to="/interviews" />}
+            >
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => handleSave(false)}
+              disabled={saveInterview.isPending}
+            >
+              <Save className="size-4" />
+              Save
+            </Button>
+            <Button
+              className="bg-amber-400 text-amber-950 hover:bg-amber-300"
+              onClick={() => handleSave(true)}
+              disabled={saveInterview.isPending}
+            >
+              {saveInterview.isPending ? "Saving…" : "Save & close"}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => handleSave(false)}
-            disabled={saveInterview.isPending}
-          >
-            <Save className="size-4" />
-            حفظ
-          </Button>
-          <Button onClick={() => handleSave(true)} disabled={saveInterview.isPending}>
-            {saveInterview.isPending ? "جارٍ الحفظ…" : "حفظ وإغلاق"}
-          </Button>
+
+        {/* live summary strip */}
+        <div className="flex flex-wrap gap-x-8 gap-y-2 border-t border-white/10 bg-slate-950/25 px-5 py-3 sm:px-6">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-blue-200/70">Star average</p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-white">
+              <Star className="size-3.5 fill-amber-400 text-amber-400" />
+              {average != null ? `${average.toFixed(1)}/5` : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-blue-200/70">Criteria scored</p>
+            <p className="text-sm font-semibold text-white">
+              {scored}/{INTERVIEW_CRITERIA.length}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-blue-200/70">Our verdict</p>
+            <p className="text-sm font-semibold text-white">
+              {draft.overall_rating != null ? `${draft.overall_rating}/10` : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-blue-200/70">Interview date</p>
+            <p className="text-sm font-semibold text-white">
+              {new Date(draft.interviewed_at).toLocaleDateString()}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {interview ? `مقابلة ${interview.full_name}` : "مقابلة جديدة"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          عبّي المعلومات وأنت بتحكي معه — كل خانة نجوم إلها خانة ملاحظة جنبها.
-        </p>
-      </div>
-
-      {/* what they wrote in the form, kept beside us while we talk */}
+      {/* ---------------- what they wrote in the form ---------------- */}
       {applicant && !id && (
-        <Card className="border-primary/30 bg-primary/5">
+        <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-500/25 dark:bg-blue-500/10">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="size-4 text-primary" />
-              معبّى من نموذج «{applicant.formTitle}»
+            <CardTitle className="flex items-center gap-2.5 text-base">
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                <Sparkles className="size-4" />
+              </span>
+              Pre-filled from “{applicant.formTitle}”
             </CardTitle>
             <CardDescription>
-              قدّم بتاريخ {new Date(applicant.submittedAt).toLocaleDateString()} — راجع جواباته
-              وعدّل أي شي ناقص.
+              Submitted {new Date(applicant.submittedAt).toLocaleDateString()} — their answers are
+              below, and the fields are already filled in.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
               {applicant.answers
                 .filter((answer) => answer.value)
                 .map((answer) => (
-                  <div key={answer.label} className="min-w-0">
+                  <div
+                    key={answer.label}
+                    className="min-w-0 rounded-lg bg-white/70 px-3 py-2 dark:bg-white/5"
+                  >
                     <dt className="text-xs font-medium text-muted-foreground">{answer.label}</dt>
                     <dd className="truncate text-sm text-foreground">{answer.value}</dd>
                   </div>
@@ -365,21 +489,15 @@ export function InterviewPage() {
         </Card>
       )}
 
-      {interview?.form_response_id && (
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <FileText className="size-3.5" />
-          هاي المقابلة مربوطة بطلب من الفورمز.
-        </p>
-      )}
-
       {/* ---------------- candidate details ---------------- */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">معلومات المتقدّم</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <SectionCard
+        icon={UserRound}
+        tint="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+        title="Candidate details"
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field className="sm:col-span-2" data-invalid={!!nameError}>
-            <FieldLabel htmlFor="i-name">الاسم الرباعي *</FieldLabel>
+            <FieldLabel htmlFor="i-name">Full name *</FieldLabel>
             <Input
               id="i-name"
               className="h-11 text-base"
@@ -393,7 +511,7 @@ export function InterviewPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="i-phone">رقم الواتساب</FieldLabel>
+            <FieldLabel htmlFor="i-phone">WhatsApp number</FieldLabel>
             <Input
               id="i-phone"
               dir="ltr"
@@ -404,7 +522,7 @@ export function InterviewPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="i-email">الإيميل</FieldLabel>
+            <FieldLabel htmlFor="i-email">Email</FieldLabel>
             <Input
               id="i-email"
               type="email"
@@ -416,7 +534,7 @@ export function InterviewPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="i-university-id">الرقم الجامعي</FieldLabel>
+            <FieldLabel htmlFor="i-university-id">University ID</FieldLabel>
             <Input
               id="i-university-id"
               className="h-11"
@@ -426,7 +544,7 @@ export function InterviewPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="i-major">التخصص</FieldLabel>
+            <FieldLabel htmlFor="i-major">Major</FieldLabel>
             <Input
               id="i-major"
               className="h-11"
@@ -436,7 +554,7 @@ export function InterviewPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="i-city">مكان السكن</FieldLabel>
+            <FieldLabel htmlFor="i-city">City / residence</FieldLabel>
             <Input
               id="i-city"
               className="h-11"
@@ -446,18 +564,18 @@ export function InterviewPage() {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="i-applied-for">قدّم على</FieldLabel>
+            <FieldLabel htmlFor="i-applied-for">Applied for</FieldLabel>
             <Input
               id="i-applied-for"
               className="h-11"
-              placeholder="مثلاً: تعليم عربي"
+              placeholder="e.g. Arabic teaching"
               value={draft.applied_for}
               onChange={(e) => set("applied_for", e.target.value)}
             />
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="i-date">تاريخ المقابلة</FieldLabel>
+            <FieldLabel htmlFor="i-date">Interview date</FieldLabel>
             <Input
               id="i-date"
               type="date"
@@ -468,13 +586,13 @@ export function InterviewPage() {
           </Field>
 
           <Field>
-            <FieldLabel>الفريق الي رح ينضم إله</FieldLabel>
+            <FieldLabel>Team they'd join</FieldLabel>
             <Select
               value={draft.department_id || null}
               onValueChange={(value) => set("department_id", (value as string) ?? "")}
             >
               <SelectTrigger className="h-11 w-full">
-                <SelectValue placeholder="لسا ما تقرّر" />
+                <SelectValue placeholder="Not decided yet" />
               </SelectTrigger>
               <SelectContent>
                 {(departments ?? []).map((department) => (
@@ -485,204 +603,216 @@ export function InterviewPage() {
               </SelectContent>
             </Select>
           </Field>
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
 
       {/* ---------------- background ---------------- */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">خلفيته وخبرته</CardTitle>
-          <CardDescription>
-            اللغات والتطوع السابق والمواهب — هاي بنكتبها، ما منعطيها نجوم.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
+      <SectionCard
+        icon={History}
+        tint="bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
+        title="Background & experience"
+        description="Languages, past volunteering and extra talents — written down, not scored."
+      >
+        <div className="flex flex-col gap-6">
           <Field>
-            <FieldLabel htmlFor="i-languages">اللغات الي بيعرفها</FieldLabel>
+            <FieldLabel htmlFor="i-languages">Languages they speak</FieldLabel>
             <Input
               id="i-languages"
               className="h-11"
-              placeholder="مثلاً: عربي، إنجليزي، تركي (مستوى متوسط)"
+              placeholder="e.g. Arabic (native), English (good), Turkish (basic)"
               value={draft.languages}
               onChange={(e) => set("languages", e.target.value)}
             />
-            <FieldDescription>اكتب كل لغة ومستواه فيها.</FieldDescription>
+            <FieldDescription>Write each language and their level in it.</FieldDescription>
           </Field>
 
-          <Field>
-            <FieldLabel>تطوّع قبل هيك؟</FieldLabel>
-            <YesNoPicker
-              value={draft.volunteered_before}
-              onChange={(value) => set("volunteered_before", value)}
-            />
-          </Field>
-
-          {draft.volunteered_before !== false && (
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
             <Field>
-              <FieldLabel htmlFor="i-prev-vol">وين تطوّع وشو كانت طبيعة تطوّعه؟</FieldLabel>
-              <Textarea
-                id="i-prev-vol"
-                rows={3}
-                className="text-[15px] leading-relaxed"
-                placeholder="اسم الجهة، الفترة، وشو كان بيعمل بالضبط…"
-                value={draft.previous_volunteering}
-                onChange={(e) => set("previous_volunteering", e.target.value)}
+              <FieldLabel>Have they volunteered before?</FieldLabel>
+              <YesNoPicker
+                value={draft.volunteered_before}
+                onChange={(value) => set("volunteered_before", value)}
               />
             </Field>
-          )}
+
+            {draft.volunteered_before !== false && (
+              <Field className="mt-4">
+                <FieldLabel htmlFor="i-prev-vol">Where, and what did they do?</FieldLabel>
+                <Textarea
+                  id="i-prev-vol"
+                  rows={3}
+                  className="bg-background text-[15px] leading-relaxed"
+                  placeholder="Organisation, period, and what their role actually was…"
+                  value={draft.previous_volunteering}
+                  onChange={(e) => set("previous_volunteering", e.target.value)}
+                />
+              </Field>
+            )}
+          </div>
 
           <Field>
-            <FieldLabel htmlFor="i-other-skills">مواهب ومهارات تانية</FieldLabel>
+            <FieldLabel htmlFor="i-other-skills">Other talents & skills</FieldLabel>
             <Textarea
               id="i-other-skills"
               rows={3}
               className="text-[15px] leading-relaxed"
-              placeholder="مثلاً: قدّم على تعليم عربي بس كمان بيفهم بالسوشال ميديا والمونتاج…"
+              placeholder="e.g. applied for Arabic teaching, but also knows social media and video editing…"
               value={draft.other_skills}
               onChange={(e) => set("other_skills", e.target.value)}
             />
             <FieldDescription>
-              أي شي بيعرفه غير الي قدّم عليه — بيفيدنا لما نوزّع الفرق.
+              Anything beyond what they applied for — useful when we assign teams.
             </FieldDescription>
           </Field>
 
           <Field>
-            <FieldLabel>قدّم عنا قبل هيك؟</FieldLabel>
+            <FieldLabel>Have they applied to us before?</FieldLabel>
             <YesNoPicker
               value={draft.applied_before}
               onChange={(value) => set("applied_before", value)}
-              yesLabel="آه قدّم قبل"
-              noLabel="أول مرة"
+              yesLabel="Applied before"
+              noLabel="First time"
             />
           </Field>
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
 
       {/* ---------------- scoring ---------------- */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
-            <span>التقييم</span>
-            {average != null && (
-              <Badge variant="secondary" className="gap-1">
-                <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                معدّل النجوم {average.toFixed(1)} / 5
-              </Badge>
-            )}
-          </CardTitle>
-          <CardDescription>
-            اضغط على النجوم، واكتب ملاحظتك جنب كل بند. اضغط نفس النجمة مرة تانية لتفضيها.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {INTERVIEW_CRITERIA.map((criterion) => (
-            <div
-              key={criterion.key}
-              className="grid grid-cols-1 gap-3 rounded-xl border border-border p-3.5 sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-center"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{criterion.label}</p>
-                <p className="text-xs text-muted-foreground">{criterion.hint}</p>
-                <div className="mt-1.5">
-                  <StarPicker
-                    value={draft.ratings[criterion.key] ?? null}
-                    onChange={(value) =>
-                      setDraft((prev) => {
-                        const ratings = { ...prev.ratings }
-                        if (value == null) delete ratings[criterion.key]
-                        else ratings[criterion.key] = value
-                        return { ...prev, ratings }
-                      })
-                    }
-                  />
+      <SectionCard
+        icon={Gauge}
+        tint="bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+        title="Scoring"
+        description="Tap the stars and jot a note beside each one. Tap the same star again to clear it."
+      >
+        <div className="flex flex-col gap-2.5">
+          {INTERVIEW_CRITERIA.map((criterion) => {
+            const rated = draft.ratings[criterion.key] != null
+            return (
+              <div
+                key={criterion.key}
+                className={cn(
+                  "grid grid-cols-1 gap-3 rounded-xl border p-3.5 transition-colors sm:grid-cols-[minmax(0,16rem)_1fr] sm:items-center",
+                  rated
+                    ? "border-blue-200 bg-blue-50/50 dark:border-blue-500/25 dark:bg-blue-500/5"
+                    : "border-border hover:bg-accent/30"
+                )}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{criterion.label}</p>
+                  <p className="text-xs text-muted-foreground">{criterion.hint}</p>
+                  <div className="mt-2">
+                    <StarPicker
+                      value={draft.ratings[criterion.key] ?? null}
+                      onChange={(value) =>
+                        setDraft((prev) => {
+                          const ratings = { ...prev.ratings }
+                          if (value == null) delete ratings[criterion.key]
+                          else ratings[criterion.key] = value
+                          return { ...prev, ratings }
+                        })
+                      }
+                    />
+                  </div>
                 </div>
+                <Input
+                  className="h-11 bg-background"
+                  placeholder="Note on this point…"
+                  value={draft.criteria_notes[criterion.key] ?? ""}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      criteria_notes: { ...prev.criteria_notes, [criterion.key]: e.target.value },
+                    }))
+                  }
+                />
               </div>
-              <Input
-                className="h-11"
-                placeholder="ملاحظتك على هاي النقطة…"
-                value={draft.criteria_notes[criterion.key] ?? ""}
-                onChange={(e) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    criteria_notes: { ...prev.criteria_notes, [criterion.key]: e.target.value },
-                  }))
-                }
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+            )
+          })}
+        </div>
+      </SectionCard>
 
       {/* ---------------- general notes ---------------- */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">الملاحظات العامة</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <SectionCard
+        icon={NotebookPen}
+        tint="bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300"
+        title="General notes"
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="i-strengths">نقاط القوة</FieldLabel>
+            <FieldLabel htmlFor="i-strengths">Strengths</FieldLabel>
             <Textarea
               id="i-strengths"
               rows={4}
               className="text-[15px] leading-relaxed"
-              placeholder="شو الي لفت نظرنا فيه…"
+              placeholder="What stood out about them…"
               value={draft.strengths}
               onChange={(e) => set("strengths", e.target.value)}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="i-concerns">التحفّظات</FieldLabel>
+            <FieldLabel htmlFor="i-concerns">Concerns</FieldLabel>
             <Textarea
               id="i-concerns"
               rows={4}
               className="text-[15px] leading-relaxed"
-              placeholder="أي شي خلانا نتردّد…"
+              placeholder="Anything that gave you pause…"
               value={draft.concerns}
               onChange={(e) => set("concerns", e.target.value)}
             />
           </Field>
           <Field className="sm:col-span-2">
-            <FieldLabel htmlFor="i-notes">ملاحظات عامة</FieldLabel>
+            <FieldLabel htmlFor="i-notes">Notes</FieldLabel>
             <Textarea
               id="i-notes"
               rows={5}
               className="text-[15px] leading-relaxed"
-              placeholder="أي شي تاني بدنا نتذكّره عنه…"
+              placeholder="Anything else worth remembering about them…"
               value={draft.notes}
               onChange={(e) => set("notes", e.target.value)}
             />
             <FieldDescription>
-              بتنتقل لملاحظات المتطوّع الداخلية إذا قبلناه.
+              Carried over to the volunteer's internal notes if they're accepted.
             </FieldDescription>
           </Field>
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
 
       {/* ---------------- verdict ---------------- */}
-      <Card className="border-primary/30">
+      <Card className="overflow-hidden border-blue-200 pt-0 dark:border-blue-500/30">
+        <div className="h-1.5 w-full bg-gradient-to-r from-blue-600 via-blue-500 to-amber-400" />
         <CardHeader>
-          <CardTitle className="text-base">القرار النهائي</CardTitle>
-          <CardDescription>تقييمنا الشخصي إله من ١٠، وبعدها القرار.</CardDescription>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+              <Award className="size-4" />
+            </span>
+            Final decision
+          </CardTitle>
+          <CardDescription>Our own score out of 10, then the call.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          <Field>
-            <FieldLabel>تقييمنا العام من ١٠</FieldLabel>
-            <StarPicker
-              count={10}
-              size="lg"
-              value={draft.overall_rating}
-              onChange={(value) => set("overall_rating", value)}
-            />
-            <FieldDescription>
-              هاد رأينا فيه ككل — مش لازم يطابق معدّل النجوم فوق.
-            </FieldDescription>
-          </Field>
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-500/25 dark:bg-amber-500/10">
+            <Field>
+              <FieldLabel className="text-amber-900 dark:text-amber-200">
+                Our overall rating — out of 10
+              </FieldLabel>
+              <StarPicker
+                count={10}
+                size="lg"
+                value={draft.overall_rating}
+                onChange={(value) => set("overall_rating", value)}
+              />
+              <FieldDescription className="text-amber-800/80 dark:text-amber-200/70">
+                This is our view of them as a whole — it doesn't have to match the star average
+                above.
+              </FieldDescription>
+            </Field>
+          </div>
 
           <Field className="max-w-sm">
-            <FieldLabel>القرار</FieldLabel>
+            <FieldLabel>Decision</FieldLabel>
             <Select
               value={draft.status}
-              onValueChange={(value) => set("status", ((value as InterviewStatus) ?? "maybe"))}
+              onValueChange={(value) => set("status", (value as InterviewStatus) ?? "maybe")}
             >
               <SelectTrigger className="h-11 w-full">
                 <SelectValue />
@@ -699,9 +829,9 @@ export function InterviewPage() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap justify-end gap-2 pb-6">
-        <Button variant="outline" render={<Link to="/interviews" />}>
-          إلغاء
+      <div className="sticky bottom-0 -mx-2 flex flex-wrap justify-end gap-2 border-t border-border bg-background/85 px-2 py-3 backdrop-blur">
+        <Button variant="ghost" render={<Link to="/interviews" />}>
+          Cancel
         </Button>
         <Button
           variant="outline"
@@ -709,10 +839,11 @@ export function InterviewPage() {
           disabled={saveInterview.isPending}
         >
           <Save className="size-4" />
-          حفظ
+          Save
         </Button>
         <Button onClick={() => handleSave(true)} disabled={saveInterview.isPending}>
-          {saveInterview.isPending ? "جارٍ الحفظ…" : "حفظ وإغلاق"}
+          <ClipboardList className="size-4" />
+          {saveInterview.isPending ? "Saving…" : "Save & close"}
         </Button>
       </div>
     </div>

@@ -562,7 +562,7 @@ export function FormRenderer({
 
                 {fields.length === 0 && (
                   <p style={{ color: d.bodyColor, fontSize: "0.9rem" }}>
-                    لا توجد أسئلة بعد — أضف سؤالاً من المحرّر.
+                    لا توجد أسئلة بعد / No questions yet.
                   </p>
                 )}
 
@@ -679,12 +679,23 @@ export function previewFields(): FormFieldRow[] {
     {
       ...base,
       id: "p3",
-      label: "الفريق الذي تريد التطوع فيه",
-      help_text: "اختر الفريق الأقرب لاهتمامك",
+      label: "الفريق الذي تريد التطوع فيه / Team you want to join",
+      help_text: "اختر الفريق الأقرب لاهتمامك / Pick the closest one",
       field_type: "radio",
-      options: ["تعليم / Teaching", "سوشال ميديا", "تصوير", "تنظيم فعاليات"],
+      options: [
+        "تعليم / Teaching",
+        "سوشال ميديا / Social media",
+        "تصوير / Photography",
+        "تنظيم فعاليات / Events",
+      ],
       position: 2,
     },
-    { ...base, id: "p4", label: "احكِ لنا عن نفسك", field_type: "textarea", position: 3 },
+    {
+      ...base,
+      id: "p4",
+      label: "احكِ لنا عن نفسك / Tell us about yourself",
+      field_type: "textarea",
+      position: 3,
+    },
   ] as FormFieldRow[]
 }
