@@ -1,6 +1,17 @@
 import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Check, Copy, Download, ExternalLink, FileText, Pencil, X } from "lucide-react"
+import {
+  ArrowLeft,
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  FileText,
+  Pencil,
+  TriangleAlert,
+  UserRound,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -272,6 +283,33 @@ export function FormResponsesPage() {
               Submitted {viewing && new Date(viewing.created_at).toLocaleString()}
             </DialogDescription>
           </DialogHeader>
+
+          {viewing?.review_note && (
+            <div
+              className={
+                viewing.volunteer_id
+                  ? "flex gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
+                  : "flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300"
+              }
+            >
+              {viewing.volunteer_id ? (
+                <UserRound className="mt-0.5 size-4 shrink-0" />
+              ) : (
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+              )}
+              <span className="min-w-0">
+                {viewing.review_note}
+                {viewing.volunteer_id && (
+                  <Link
+                    to={`/volunteers/${viewing.volunteer_id}`}
+                    className="ms-1 font-medium underline"
+                  >
+                    Open their profile
+                  </Link>
+                )}
+              </span>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             {fields.map((field) => (

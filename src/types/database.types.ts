@@ -99,6 +99,8 @@ export type VolunteerPrivateRow = {
   internal_notes: string | null
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
+  /** last time an accepted renewal-form response was merged in */
+  renewed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -501,7 +503,11 @@ export type BoothProposalInsert = Partial<BoothProposalRow> &
   Pick<BoothProposalRow, "booth_id" | "event_id" | "title">
 export type BoothProposalUpdate = Partial<BoothProposalRow>
 
-export type FormDestination = "volunteers" | "event_participants" | "none"
+export type FormDestination =
+  | "volunteers"
+  | "event_participants"
+  | "renew_volunteers"
+  | "none"
 export type FormTheme = "light" | "soft" | "gradient" | "dark"
 
 /**
@@ -627,6 +633,10 @@ export type FormResponseRow = {
   status: "pending" | "approved" | "rejected"
   reviewed_by: string | null
   reviewed_at: string | null
+  /** the volunteer this response created, matched or renewed */
+  volunteer_id: string | null
+  /** what accepting it actually did, or why it could not be matched */
+  review_note: string | null
   created_at: string
 }
 export type FormResponseInsert = Partial<FormResponseRow> & Pick<FormResponseRow, "form_id">

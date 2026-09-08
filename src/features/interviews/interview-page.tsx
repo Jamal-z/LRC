@@ -12,6 +12,7 @@ import {
   Sparkles,
   Star,
   UserRound,
+  UserRoundCheck,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -35,6 +36,7 @@ import {
   INTERVIEW_CRITERIA,
   INTERVIEW_STATUS_LABELS,
   interviewAverage,
+  useConvertInterview,
   useFormApplicant,
   useInterview,
   useSaveInterview,
@@ -279,6 +281,7 @@ export function InterviewPage() {
     id ? undefined : fromResponseId
   )
   const saveInterview = useSaveInterview()
+  const convertInterview = useConvertInterview()
 
   const [draft, setDraft] = useState<DraftState>(emptyDraft)
   const [nameError, setNameError] = useState<string | null>(null)
@@ -298,43 +301,75 @@ export function InterviewPage() {
   const average = interviewAverage(draft.ratings)
   const scored = Object.keys(draft.ratings).length
 
-  async function handleSave(closeAfter: boolean) {
-    if (!draft.full_name.trim()) {
-      setNameError("The candidate's name is required.")
-      window.scrollTo({ top: 0, behavior: "smooth" })
+  /** The row we would write, shared by "save" and "accept & add". */
+  function payload(status: InterviewStatus) {
+    return {
+      id: interview?.id,
+      full_name: draft.full_name.trim(),
+      university_id: draft.university_id.trim() || null,
+      major: draft.major.trim() || null,
+      phone: draft.phone.trim() || null,
+      email: draft.email.trim() || null,
+      city: draft.city.trim() || null,
+      department_id: draft.department_id || null,
+      applied_for: draft.applied_for.trim() || null,
+      ratings: draft.ratings,
+      criteria_notes: Object.fromEntries(
+        Object.entries(draft.criteria_notes).filter(([, note]) => note.trim())
+      ),
+      languages: draft.languages.trim() || null,
+      volunteered_before: draft.volunteered_before,
+      previous_volunteering: draft.previous_volunteering.trim() || null,
+      other_skills: draft.other_skills.trim() || null,
+      applied_before: draft.applied_before,
+      overall_rating: draft.overall_rating,
+      form_response_id: draft.form_response_id,
+      strengths: draft.strengths.trim() || null,
+      concerns: draft.concerns.trim() || null,
+      notes: draft.notes.trim() || null,
+      status,
+      // the original interviewer stays on record when someone else edits later
+      interviewed_by: interview?.interviewed_by ?? profile?.id ?? null,
+      interviewed_at: draft.interviewed_at,
+    }
+  }
+
+  function requireName() {
+    if (draft.full_name.trim()) return true
+    setNameError("The candidate's name is required.")
+    window.scrollTo({ top: 0, behavior: "smooth" })
+    return false
+  }
+
+  /** Accept the candidate and put them on the roster in one go. */
+  async function handleAcceptAndAdd() {
+    if (!requireName()) return
+    if (interview?.converted_volunteer_id) {
+      navigate(`/volunteers/${interview.converted_volunteer_id}`)
       return
     }
 
     try {
-      const savedId = await saveInterview.mutateAsync({
-        id: interview?.id,
-        full_name: draft.full_name.trim(),
-        university_id: draft.university_id.trim() || null,
-        major: draft.major.trim() || null,
-        phone: draft.phone.trim() || null,
-        email: draft.email.trim() || null,
-        city: draft.city.trim() || null,
-        department_id: draft.department_id || null,
-        applied_for: draft.applied_for.trim() || null,
-        ratings: draft.ratings,
-        criteria_notes: Object.fromEntries(
-          Object.entries(draft.criteria_notes).filter(([, note]) => note.trim())
-        ),
-        languages: draft.languages.trim() || null,
-        volunteered_before: draft.volunteered_before,
-        previous_volunteering: draft.previous_volunteering.trim() || null,
-        other_skills: draft.other_skills.trim() || null,
-        applied_before: draft.applied_before,
-        overall_rating: draft.overall_rating,
-        form_response_id: draft.form_response_id,
-        strengths: draft.strengths.trim() || null,
-        concerns: draft.concerns.trim() || null,
-        notes: draft.notes.trim() || null,
-        status: draft.status,
-        // the original interviewer stays on record when someone else edits later
-        interviewed_by: interview?.interviewed_by ?? profile?.id ?? null,
-        interviewed_at: draft.interviewed_at,
+      const savedId = await saveInterview.mutateAsync(payload("accepted"))
+      const volunteerId = await convertInterview.mutateAsync({
+        ...payload("accepted"),
+        id: savedId,
       })
+      toast.success(`${draft.full_name.trim()} is now an official volunteer`)
+      navigate(`/volunteers/${volunteerId}`)
+    } catch (error) {
+      // the interview itself is saved either way — only the conversion failed
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add them as a volunteer"
+      )
+    }
+  }
+
+  async function handleSave(closeAfter: boolean) {
+    if (!requireName()) return
+
+    try {
+      const savedId = await saveInterview.mutateAsync(payload(draft.status))
       toast.success(interview ? "Interview updated" : `${draft.full_name.trim()} recorded`)
       if (closeAfter) navigate("/interviews")
       else if (!interview) navigate(`/interviews/${savedId}`, { replace: true })
@@ -422,6 +457,18 @@ export function InterviewPage() {
               disabled={saveInterview.isPending}
             >
               {saveInterview.isPending ? "Saving…" : "Save & close"}
+            </Button>
+            <Button
+              className="bg-emerald-500 text-white hover:bg-emerald-600"
+              onClick={handleAcceptAndAdd}
+              disabled={saveInterview.isPending || convertInterview.isPending}
+            >
+              <UserRoundCheck className="size-4" />
+              {interview?.converted_volunteer_id
+                ? "View volunteer"
+                : convertInterview.isPending
+                  ? "Adding…"
+                  : "Accept & add"}
             </Button>
           </div>
         </div>
@@ -844,6 +891,14 @@ export function InterviewPage() {
         <Button onClick={() => handleSave(true)} disabled={saveInterview.isPending}>
           <ClipboardList className="size-4" />
           {saveInterview.isPending ? "Saving…" : "Save & close"}
+        </Button>
+        <Button
+          className="bg-emerald-500 text-white hover:bg-emerald-600"
+          onClick={handleAcceptAndAdd}
+          disabled={saveInterview.isPending || convertInterview.isPending}
+        >
+          <UserRoundCheck className="size-4" />
+          {interview?.converted_volunteer_id ? "View volunteer" : "Accept & add to volunteers"}
         </Button>
       </div>
     </div>

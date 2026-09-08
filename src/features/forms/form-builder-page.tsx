@@ -642,12 +642,24 @@ export function FormBuilderPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="volunteers">Add them as a volunteer</SelectItem>
+                        <SelectItem value="renew_volunteers">
+                          Renew an existing volunteer
+                        </SelectItem>
                         <SelectItem value="event_participants">
                           Add them to a specific event
                         </SelectItem>
                         <SelectItem value="none">Just keep the record</SelectItem>
                       </SelectContent>
                     </Select>
+                    {destination === "renew_volunteers" && (
+                      <FieldDescription>
+                        For a renewal form: nobody new is ever created. We find the volunteer by
+                        university ID, phone, then name — fill in whatever was blank, leave
+                        identical answers alone, and update changed ones while keeping the old
+                        value in their notes. If nobody matches, the response is flagged for you
+                        instead.
+                      </FieldDescription>
+                    )}
                   </Field>
 
                   {destination === "event_participants" && (

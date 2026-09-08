@@ -301,11 +301,29 @@ export function useFormApplicant(responseId: string | undefined) {
   })
 }
 
+/** Everything turning a candidate into a volunteer needs off the interview. */
+export type ConvertibleInterview = Pick<
+  InterviewRow,
+  | "id"
+  | "full_name"
+  | "university_id"
+  | "major"
+  | "phone"
+  | "email"
+  | "city"
+  | "department_id"
+  | "languages"
+  | "other_skills"
+  | "notes"
+  | "strengths"
+  | "previous_volunteering"
+>
+
 /** Turns an accepted candidate into a real volunteer (with duplicate checking). */
 export function useConvertInterview() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (interview: InterviewRow) => {
+    mutationFn: async (interview: ConvertibleInterview) => {
       const [{ data: existingNames }, { data: existingPrivate }] = await Promise.all([
         supabase.from("volunteers").select("id, full_name"),
         supabase.from("volunteer_private").select("volunteer_id, phone, university_id"),

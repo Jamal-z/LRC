@@ -1,11 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import { normalizeName } from "@/lib/names"
+import { planRenewalMerge, renewalNoteEntry, summariseMerge } from "./renewal-merge"
 import type {
   FormFieldRow,
   FormFieldType,
   FormResponseRow,
   FormRow,
+  VolunteerPrivateInsert,
+  VolunteerPrivateRow,
+  VolunteerUpdate,
 } from "@/types/database.types"
 
 export interface FormWithCounts extends FormRow {
@@ -38,6 +42,38 @@ export const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: "radio", label: "Multiple choice (one)" },
   { value: "checkbox", label: "Checkboxes (many)" },
 ]
+
+/**
+ * Finds the volunteer a form response belongs to.
+ *
+ * University ID and phone are checked before the name: they identify one
+ * person, whereas two different volunteers can easily share a common name.
+ * Returns null when nobody matches.
+ */
+export async function findMatchingVolunteer(mapped: Record<string, string>) {
+  const [{ data: volunteers }, { data: privates }] = await Promise.all([
+    supabase.from("volunteers").select("id, full_name"),
+    supabase.from("volunteer_private").select("volunteer_id, phone, university_id"),
+  ])
+
+  const byId =
+    mapped.university_id &&
+    (privates ?? []).find((v) => v.university_id === mapped.university_id)?.volunteer_id
+  if (byId) return { id: byId, matchedOn: "university ID" as const }
+
+  const byPhone =
+    mapped.phone && (privates ?? []).find((v) => v.phone === mapped.phone)?.volunteer_id
+  if (byPhone) return { id: byPhone, matchedOn: "phone" as const }
+
+  const byName =
+    mapped.full_name &&
+    (volunteers ?? []).find(
+      (v) => normalizeName(v.full_name) === normalizeName(mapped.full_name)
+    )?.id
+  if (byName) return { id: byName, matchedOn: "name" as const }
+
+  return null
+}
 
 export function slugify(title: string) {
   const base = title
@@ -217,6 +253,9 @@ export function useReviewResponse() {
       decision: "approved" | "rejected"
       reviewerId: string | null
     }) => {
+      // set once we know which volunteer this response ended up touching
+      let touchedVolunteerId: string | null = null
+
       if (decision === "approved" && form.destination !== "none") {
         // collect the mapped answers by their target column
         const mapped: Record<string, string> = {}
@@ -244,21 +283,92 @@ export function useReviewResponse() {
           if (match) departmentId = match.id
         }
 
-        // reuse an existing volunteer when the person is already on file
-        const [{ data: existingNames }, { data: existingPrivate }] = await Promise.all([
-          supabase.from("volunteers").select("id, full_name"),
-          supabase.from("volunteer_private").select("volunteer_id, phone, university_id"),
-        ])
+        // ---- renewal: merge into the person we already have, never create ----
+        if (form.destination === "renew_volunteers") {
+          const match = await findMatchingVolunteer({ ...mapped, full_name: fullName })
 
-        let volunteerId =
-          (existingNames ?? []).find((v) => normalizeName(v.full_name) === normalizeName(fullName))
-            ?.id ??
-          (existingPrivate ?? []).find(
-            (v) =>
-              (mapped.university_id && v.university_id === mapped.university_id) ||
-              (mapped.phone && v.phone === mapped.phone)
-          )?.volunteer_id ??
-          null
+          if (!match) {
+            // flag it for a human rather than quietly adding a stranger
+            await supabase
+              .from("form_responses")
+              .update({
+                review_note: `No volunteer matched "${fullName}" by name, university ID or phone. Handle this one by hand.`,
+              })
+              .eq("id", response.id)
+            throw new Error(
+              `${fullName} isn't on the volunteer roster — no match by name, university ID or phone. The response has been flagged for manual review.`
+            )
+          }
+
+          const [{ data: currentPrivate }, { data: currentVolunteer }] = await Promise.all([
+            supabase.from("volunteer_private").select("*").eq("volunteer_id", match.id).maybeSingle(),
+            supabase.from("volunteers").select("status").eq("id", match.id).maybeSingle(),
+          ])
+
+          const plan = planRenewalMerge(mapped, currentPrivate as VolunteerPrivateRow | null)
+
+          const privateUpdate: VolunteerPrivateInsert = {
+            volunteer_id: match.id,
+            ...plan.updates,
+            renewed_at: new Date().toISOString(),
+          }
+          // keep the replaced values in the internal notes so nothing is lost
+          const noteEntry = renewalNoteEntry(plan)
+          if (noteEntry) {
+            privateUpdate.internal_notes = [
+              (currentPrivate as VolunteerPrivateRow | null)?.internal_notes,
+              noteEntry,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          }
+
+          const { error: privateError } = await supabase
+            .from("volunteer_private")
+            .upsert(privateUpdate, { onConflict: "volunteer_id" })
+          if (privateError) throw privateError
+
+          const volunteerUpdate: VolunteerUpdate = {}
+          if (departmentId) volunteerUpdate.primary_department_id = departmentId
+          // renewing puts someone back on the active roster, but a status that
+          // means something to the team (needs_follow_up) is left alone
+          const dormant = ["new", "inactive", "archived", "on_hold"]
+          let reactivated = false
+          if (currentVolunteer && dormant.includes(currentVolunteer.status)) {
+            volunteerUpdate.status = "active"
+            volunteerUpdate.archived_at = null
+            reactivated = true
+          }
+          if (Object.keys(volunteerUpdate).length) {
+            const { error: volError } = await supabase
+              .from("volunteers")
+              .update(volunteerUpdate)
+              .eq("id", match.id)
+            if (volError) throw volError
+          }
+
+          const { error: doneError } = await supabase
+            .from("form_responses")
+            .update({
+              status: decision,
+              reviewed_by: reviewerId,
+              reviewed_at: new Date().toISOString(),
+              volunteer_id: match.id,
+              review_note: [
+                `Matched by ${match.matchedOn}.`,
+                summariseMerge(plan),
+                reactivated ? "Status set back to active." : null,
+              ]
+                .filter(Boolean)
+                .join(" "),
+            })
+            .eq("id", response.id)
+          if (doneError) throw doneError
+          return
+        }
+
+        // reuse an existing volunteer when the person is already on file
+        let volunteerId = (await findMatchingVolunteer({ ...mapped, full_name: fullName }))?.id ?? null
 
         if (!volunteerId) {
           const { data: created, error: createError } = await supabase
@@ -291,6 +401,8 @@ export function useReviewResponse() {
           if (privateError) throw privateError
         }
 
+        touchedVolunteerId = volunteerId
+
         if (form.destination === "event_participants" && form.destination_event_id) {
           const { error: participantError } = await supabase.from("event_participants").insert({
             event_id: form.destination_event_id,
@@ -311,6 +423,7 @@ export function useReviewResponse() {
           status: decision,
           reviewed_by: reviewerId,
           reviewed_at: new Date().toISOString(),
+          ...(touchedVolunteerId ? { volunteer_id: touchedVolunteerId } : {}),
         })
         .eq("id", response.id)
       if (error) throw error
