@@ -63,7 +63,7 @@ export function FormsPage() {
           {forms.map((form) => {
             const pending = form.form_responses.filter((r) => r.status === "pending").length
             const approved = form.form_responses.filter((r) => r.status === "approved").length
-            const publicUrl = `${window.location.origin}/f/${form.slug}`
+            const publicUrl = `${window.location.origin}/f/${encodeURIComponent(form.slug)}`
 
             return (
               <Card key={form.id} className="overflow-hidden pt-0">
@@ -137,7 +137,7 @@ export function FormsPage() {
                       size="icon-sm"
                       variant="ghost"
                       aria-label="Open form"
-                      render={<a href={`/f/${form.slug}`} target="_blank" rel="noreferrer" />}
+                      render={<a href={publicUrl} target="_blank" rel="noreferrer" />}
                     >
                       <ExternalLink className="size-3.5" />
                     </Button>

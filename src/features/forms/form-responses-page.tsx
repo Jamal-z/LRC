@@ -95,7 +95,7 @@ export function FormResponsesPage() {
     })),
   ]
 
-  const publicUrl = `${window.location.origin}/f/${form.slug}`
+  const publicUrl = `${window.location.origin}/f/${encodeURIComponent(form.slug)}`
 
   function ResponseTable({ rows, showActions }: { rows: FormResponseRow[]; showActions: boolean }) {
     // show the first few questions as columns; the rest live in the detail dialog
@@ -214,7 +214,7 @@ export function FormResponsesPage() {
             </Button>
             <Button
               variant="outline"
-              render={<a href={`/f/${form.slug}`} target="_blank" rel="noreferrer" />}
+              render={<a href={publicUrl} target="_blank" rel="noreferrer" />}
             >
               <ExternalLink className="size-4" />
               Open

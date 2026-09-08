@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import { normalizeName } from "@/lib/names"
+import { slugify } from "@/lib/slug"
 import { planRenewalMerge, renewalNoteEntry, summariseMerge } from "./renewal-merge"
+
+export { slugify } from "@/lib/slug"
 import type {
   FormFieldRow,
   FormFieldType,
@@ -75,15 +78,7 @@ export async function findMatchingVolunteer(mapped: Record<string, string>) {
   return null
 }
 
-export function slugify(title: string) {
-  const base = title
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-  // Arabic titles can slugify to an empty string — always keep something unique
-  return `${base || "form"}-${Math.random().toString(36).slice(2, 7)}`
-}
+
 
 export function useForms() {
   return useQuery({

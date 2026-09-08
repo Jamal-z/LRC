@@ -298,7 +298,10 @@ export function FormBuilderPage() {
   const needsOptions = (type: FormFieldType) =>
     type === "select" || type === "radio" || type === "checkbox"
 
-  const publicUrl = existingForm ? `${window.location.origin}/f/${existingForm.slug}` : null
+  // encodeURIComponent so a legacy non-ASCII slug still copies and opens cleanly
+  const publicUrl = existingForm
+    ? `${window.location.origin}/f/${encodeURIComponent(existingForm.slug)}`
+    : null
 
   return (
     <div className="flex flex-col gap-4">
