@@ -40,12 +40,73 @@ import { useAuth } from "@/features/auth/auth-context"
 import { exportToExcel, type ExportColumn } from "@/lib/export"
 import { FormAudienceTab } from "./form-audience-tab"
 import { FormSummary } from "./form-summary"
-import { useForm, useFormFields, useFormResponses, useReviewResponse } from "./use-forms"
-import type { FormResponseRow } from "@/types/database.types"
+import {
+  FIELD_MAPPINGS,
+  collectMappedAnswers,
+  useForm,
+  useFormFields,
+  useFormResponses,
+  useReviewResponse,
+} from "./use-forms"
+import type { FormFieldRow, FormResponseRow } from "@/types/database.types"
 
 function answerText(value: string | string[] | null | undefined) {
   if (Array.isArray(value)) return value.join("، ")
   return value ?? ""
+}
+
+/**
+ * What accepting this response would put on the volunteer.
+ *
+ * Every question can point at a volunteer field, and a question pointing
+ * nowhere is silently dropped on acceptance — which is how a language grid
+ * ends up saving one language out of nine. Showing the outcome next to the
+ * answers turns that from something discovered later into something visible
+ * now, while it can still be fixed in the form.
+ */
+function WillSave({
+  response,
+  fields,
+}: {
+  response: FormResponseRow
+  fields: FormFieldRow[]
+}) {
+  const mapped = collectMappedAnswers(fields, response.answers)
+  const entries = Object.entries(mapped)
+  const unmapped = fields.filter(
+    (field) => !field.maps_to && answerText(response.answers[field.id]).trim()
+  )
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Saved to the volunteer
+      </p>
+      {entries.length === 0 ? (
+        <p className="mt-1.5 text-sm text-amber-700 dark:text-amber-300">
+          Nothing — no question on this form is pointed at a volunteer field. Open the form and set
+          "Save answer into" on the questions that matter.
+        </p>
+      ) : (
+        <dl className="mt-1.5 flex flex-col gap-1 text-sm">
+          {entries.map(([target, value]) => (
+            <div key={target} className="flex flex-wrap gap-x-2">
+              <dt className="text-muted-foreground">
+                {FIELD_MAPPINGS.find((mapping) => mapping.value === target)?.label ?? target}:
+              </dt>
+              <dd className="min-w-0 font-medium text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {unmapped.length > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {unmapped.length} answered question{unmapped.length === 1 ? "" : "s"} kept on the response
+          only: {unmapped.map((field) => field.label).join("، ")}
+        </p>
+      )}
+    </div>
+  )
 }
 
 export function FormResponsesPage() {
@@ -339,6 +400,12 @@ export function FormResponsesPage() {
               </span>
             </div>
           )}
+
+          {/* Accepting a response writes it into the volunteer once and never
+              again, so what it is about to write is worth seeing first — an
+              answer that lands nowhere is otherwise only noticed weeks later,
+              on a profile with a blank field. */}
+          {viewing && form.destination !== "none" && <WillSave response={viewing} fields={fields} />}
 
           <div className="flex flex-col gap-3">
             {fields.map((field) => (

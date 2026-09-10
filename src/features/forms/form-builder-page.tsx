@@ -13,6 +13,7 @@ import {
   Monitor,
   Palette,
   Plus,
+  Wand2,
   Settings2,
   Smartphone,
   Trash2,
@@ -46,7 +47,13 @@ import {
   useFormFields,
   useSaveForm,
 } from "./use-forms"
-import { DEFAULT_DESIGN, resolveDesign, sanitizeCss, sanitizeHtml } from "./form-design"
+import {
+  DEFAULT_DESIGN,
+  extractFieldsFromHtml,
+  resolveDesign,
+  sanitizeCss,
+  sanitizeHtml,
+} from "./form-design"
 import type { ExtractedField } from "./form-design"
 import { FormDesignPanel } from "./form-design-panel"
 import { FormRenderer, previewFields, type AnswerMap } from "./form-renderer"
@@ -191,6 +198,49 @@ export function FormBuilderPage() {
         is_required: field.is_required,
         maps_to: guessMapping(field.label),
       }))
+    )
+  }
+
+  /**
+   * Re-reads every question title and points it at the volunteer field it is
+   * asking about.
+   *
+   * Where an answer goes is decided once, when the questions are created, so a
+   * form built before the titles were being read properly keeps whatever was
+   * worked out back then — nine rows of a language grid feeding nothing, and a
+   * volunteer who speaks four languages filed as speaking one. This re-runs
+   * that reading over the questions as they stand now, without touching a
+   * choice made by hand.
+   */
+  function remapFields() {
+    // An uploaded form keeps its markup, so the questions can be read out of it
+    // again — titles included. That matters: a grid row saved as "lvl_en" back
+    // when group titles were not being found points at nothing, and no amount
+    // of re-guessing from "lvl_en" will ever say "languages". Rewriting in
+    // place keeps each question's id, so responses already collected still line
+    // up with it — which re-uploading the file would not.
+    const fromLayout =
+      design.htmlLayout && customHeaderHtml ? extractFieldsFromHtml(customHeaderHtml) : []
+
+    let changed = 0
+    setFields((prev) =>
+      prev.map((field, index) => {
+        const source = fromLayout[index]
+        const label = source?.label || field.label
+        const maps_to = guessMapping(label) ?? field.maps_to
+        const options = source?.options.length ? source.options : field.options
+        if (label === field.label && maps_to === field.maps_to && options === field.options) {
+          return field
+        }
+        changed++
+        return { ...field, label, maps_to, options }
+      })
+    )
+
+    toast.success(
+      changed
+        ? `${changed} question${changed === 1 ? "" : "s"} updated — press Save to keep it`
+        : "Every question is already up to date"
     )
   }
 
@@ -572,10 +622,18 @@ export function FormBuilderPage() {
                 </Card>
               ))}
 
-              <Button variant="outline" onClick={() => setFields((prev) => [...prev, newField()])}>
-                <Plus className="size-4" />
-                Add question
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => setFields((prev) => [...prev, newField()])}>
+                  <Plus className="size-4" />
+                  Add question
+                </Button>
+                {fields.length > 1 && (
+                  <Button variant="ghost" onClick={remapFields}>
+                    <Wand2 className="size-4" />
+                    Re-read the questions
+                  </Button>
+                )}
+              </div>
             </TabsContent>
 
             {/* design */}
