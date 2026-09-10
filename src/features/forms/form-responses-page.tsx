@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import {
   ArrowLeft,
+  BarChart3,
   Check,
   Copy,
   Download,
@@ -10,6 +11,7 @@ import {
   Pencil,
   TriangleAlert,
   UserRound,
+  UserRoundX,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -36,6 +38,8 @@ import {
 import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/features/auth/auth-context"
 import { exportToExcel, type ExportColumn } from "@/lib/export"
+import { FormAudienceTab } from "./form-audience-tab"
+import { FormSummary } from "./form-summary"
 import { useForm, useFormFields, useFormResponses, useReviewResponse } from "./use-forms"
 import type { FormResponseRow } from "@/types/database.types"
 
@@ -233,11 +237,36 @@ export function FormResponsesPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="summary">
         <TabsList>
+          <TabsTrigger value="summary">
+            <BarChart3 className="size-3.5" />
+            Summary
+          </TabsTrigger>
+          <TabsTrigger value="audience">
+            <UserRoundX className="size-3.5" />
+            Who's missing
+          </TabsTrigger>
           <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
           <TabsTrigger value="reviewed">Reviewed ({reviewed.length})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="summary">
+          {isLoading ? (
+            <Skeleton className="h-72 w-full" />
+          ) : (
+            <FormSummary form={form} fields={fields} responses={responses} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="audience">
+          <FormAudienceTab
+            form={form}
+            fields={fields}
+            responses={responses}
+            isLoading={isLoading}
+          />
+        </TabsContent>
 
         <TabsContent value="pending">
           <Card>

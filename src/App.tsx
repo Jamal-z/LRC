@@ -26,6 +26,7 @@ import { TerminationsPage } from "@/features/volunteers/terminations-page"
 import { FormsPage } from "@/features/forms/forms-page"
 import { FormBuilderPage } from "@/features/forms/form-builder-page"
 import { FormResponsesPage } from "@/features/forms/form-responses-page"
+import { ComparisonPage } from "@/features/comparison/comparison-page"
 import { PublicFormPage } from "@/features/forms/public-form-page"
 import { MyProfilePage } from "@/features/auth/my-profile-page"
 import { NotificationsPage } from "@/features/notifications/notifications-page"
@@ -82,6 +83,7 @@ function App() {
                   <Route path="forms/new" element={<FormBuilderPage />} />
                   <Route path="forms/:id/edit" element={<FormBuilderPage />} />
                   <Route path="forms/:id/responses" element={<FormResponsesPage />} />
+                  <Route path="comparison" element={<ComparisonPage />} />
                   <Route path="terminations" element={<TerminationsPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="import" element={<ImportPage />} />

@@ -637,10 +637,27 @@ export type FormResponseRow = {
   volunteer_id: string | null
   /** what accepting it actually did, or why it could not be matched */
   review_note: string | null
+  /** a reviewer confirmed this person is nobody on the volunteer roster */
+  match_dismissed: boolean
   created_at: string
 }
 export type FormResponseInsert = Partial<FormResponseRow> & Pick<FormResponseRow, "form_id">
 export type FormResponseUpdate = Partial<FormResponseRow>
+
+export type VolunteerAliasRow = {
+  id: string
+  volunteer_id: string
+  /** the alternative spelling, exactly as it was written on a form */
+  name: string
+  /** normalizeName(name) — what lookups match on */
+  normalized: string
+  source: string | null
+  created_by: string | null
+  created_at: string
+}
+export type VolunteerAliasInsert = Partial<VolunteerAliasRow> &
+  Pick<VolunteerAliasRow, "volunteer_id" | "name" | "normalized">
+export type VolunteerAliasUpdate = Partial<VolunteerAliasRow>
 
 export type AppSettingRow = {
   key: string
@@ -683,6 +700,7 @@ export type Database = {
       form_submissions: TableDef<FormSubmissionRow, FormSubmissionInsert, FormSubmissionUpdate>
       app_settings: TableDef<AppSettingRow, AppSettingInsert, AppSettingUpdate>
       event_photos: TableDef<EventPhotoRow, EventPhotoInsert, EventPhotoUpdate>
+      volunteer_aliases: TableDef<VolunteerAliasRow, VolunteerAliasInsert, VolunteerAliasUpdate>
       forms: TableDef<FormRow, FormInsert, FormUpdate>
       form_fields: TableDef<FormFieldRow, FormFieldInsert, FormFieldUpdate>
       form_responses: TableDef<FormResponseRow, FormResponseInsert, FormResponseUpdate>

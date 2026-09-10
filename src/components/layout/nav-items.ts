@@ -12,6 +12,7 @@ import {
   UploadCloud,
   Settings,
   FileText,
+  GitCompareArrows,
   Bell,
   MessageSquareText,
 } from "lucide-react"
@@ -39,6 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Interviews", path: "/interviews", icon: MessageSquareText, roles: ADMINS_ONLY },
   { label: "Reports", path: "/reports", icon: BarChart3, roles: ADMINS_ONLY },
   { label: "Forms", path: "/forms", icon: FileText, roles: ADMINS_ONLY },
+  { label: "Comparison", path: "/comparison", icon: GitCompareArrows, roles: ADMINS_ONLY },
   { label: "Terminations", path: "/terminations", icon: UserX, roles: ADMINS_ONLY },
   { label: "Users & Roles", path: "/users", icon: ShieldCheck, roles: ADMINS_ONLY },
   { label: "Import Data", path: "/import", icon: UploadCloud, roles: ADMINS_ONLY },
