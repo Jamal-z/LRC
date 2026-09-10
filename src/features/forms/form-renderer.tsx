@@ -23,6 +23,7 @@ import {
   submitButtonProps,
   titleSizeFor,
 } from "./form-design"
+import { HtmlLayout } from "./html-layout"
 import type { FormDesign, FormFieldRow } from "@/types/database.types"
 
 export type AnswerMap = Record<string, string | string[] | null>
@@ -284,6 +285,36 @@ export function FormRenderer({
       )}
     </div>
   )
+
+  // "The file is the form": the upload brought its own page — background,
+  // header, questions, submit button — so none of the chrome below is drawn.
+  // Anything else would be this system's design showing through a design the
+  // centre deliberately made somewhere else.
+  if (d.htmlLayout && form.custom_header_html && !submitted) {
+    return (
+      <div className="lrc-page" dir="rtl" style={{ ...cssVars, minHeight: preview ? "100%" : "100svh" }}>
+        {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
+        <form onSubmit={onSubmit} noValidate>
+          <HtmlLayout
+            html={sanitizeHtml(form.custom_header_html)}
+            fields={fields}
+            onAnswer={onAnswer}
+          />
+          {submitError && (
+            <p style={{ margin: "1rem", textAlign: "center", color: "#dc2626" }}>{submitError}</p>
+          )}
+          {Object.keys(errors).length > 0 && (
+            <p style={{ margin: "1rem", textAlign: "center", color: "#dc2626" }}>
+              في أسئلة مطلوبة ناقصة / Some required questions are still empty
+            </p>
+          )}
+          {submitting && (
+            <p style={{ margin: "1rem", textAlign: "center" }}>جارٍ الإرسال… / Sending…</p>
+          )}
+        </form>
+      </div>
+    )
+  }
 
   return (
     <div

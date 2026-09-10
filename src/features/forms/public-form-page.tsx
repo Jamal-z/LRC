@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom"
 import { FileWarning } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useForm, useFormFields, useSubmitFormResponse } from "./use-forms"
+import { FIELD_INDEX_ATTR } from "./form-design"
 import { FormRenderer, validateAnswers, type AnswerMap } from "./form-renderer"
 
 export function PublicFormPage() {
@@ -34,7 +35,13 @@ export function PublicFormPage() {
     const nextErrors = validateAnswers(fields, answers)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) {
-      document.querySelector(".lrc-question")?.scrollIntoView({ behavior: "smooth", block: "center" })
+      // an uploaded layout has no .lrc-question blocks — its controls are
+      // tagged by position instead, so the first unanswered one is found there
+      const missing = fields.findIndex((field) => nextErrors[field.id])
+      const target =
+        document.querySelector(`[${FIELD_INDEX_ATTR}="${missing}"]`) ??
+        document.querySelector(".lrc-question")
+      target?.scrollIntoView({ behavior: "smooth", block: "center" })
       return
     }
 

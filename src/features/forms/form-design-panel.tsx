@@ -238,22 +238,27 @@ export function FormDesignPanel({
       return
     }
     const raw = await file.text()
-    const { css, html, fields } = splitUploadedHtml(raw)
+    const { css, html, fields, layoutHtml } = splitUploadedHtml(raw)
     if (!css && !html && !fields.length) {
       toast.error("No styles, markup or questions found in that file")
       return
     }
     onCustomCss(css)
-    onCustomHeaderHtml(html)
 
-    // a hand-written form carries its questions in the same file; importing
-    // them is the difference between a skin and an actual working form
+    // A file that brought its own questions is a finished form, not a skin, so
+    // it is shown exactly as written — the only way a hand-built table or a row
+    // of pills survives at all. Files with styling but no questions stay a skin
+    // over the questions built here.
     if (fields.length) {
+      onCustomHeaderHtml(layoutHtml)
+      onChange({ htmlLayout: true })
       onImportFields(fields)
       toast.success(
-        `Design applied and ${fields.length} question${fields.length === 1 ? "" : "s"} imported`
+        `Your file is now the form — ${fields.length} question${fields.length === 1 ? "" : "s"} wired up`
       )
     } else {
+      onCustomHeaderHtml(html)
+      onChange({ htmlLayout: false })
       toast.success("Design applied — check the preview")
     }
   }
@@ -757,6 +762,20 @@ export function FormDesignPanel({
             }}
           />
         </Section>
+
+        {design.htmlLayout && (
+          <Section
+            label="This form is your file"
+            hint="It is shown exactly as uploaded — the templates and the settings above are not applied while this is on. Turn it off to have the questions redrawn with this system's own look instead."
+          >
+            <ToggleRow
+              label="Show the uploaded file as-is"
+              hint="Off = redraw the questions using the design settings"
+              checked={design.htmlLayout}
+              onChange={(v) => onChange({ htmlLayout: v })}
+            />
+          </Section>
+        )}
 
         <Section label="Custom CSS" hint="Applied on top of every option above — it always wins.">
           <Textarea

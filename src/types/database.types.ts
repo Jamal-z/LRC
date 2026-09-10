@@ -555,6 +555,13 @@ export type FormDesign = {
   questionNumbers?: boolean
   questionTextColor?: string
 
+  /**
+   * "The file is the form": custom_header_html holds the whole uploaded body
+   * and is shown exactly as written, instead of the questions being redrawn.
+   * Every other setting here is ignored while this is on — the file decides.
+   */
+  htmlLayout?: boolean
+
   /** how the answers to a multiple-choice question are laid out */
   choiceStyle?: "list" | "pill" | "box" | "card"
   /** how many across; "auto" fits as many per row as the text allows */

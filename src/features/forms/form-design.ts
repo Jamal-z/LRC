@@ -36,6 +36,7 @@ export const DEFAULT_DESIGN: Required<FormDesign> = {
   questionAccentBar: true,
   questionNumbers: true,
   questionTextColor: "#0f172a",
+  htmlLayout: false,
   choiceStyle: "box",
   choiceColumns: "auto",
 
@@ -1054,6 +1055,90 @@ const INPUT_TYPE_MAP: Record<string, string> = {
   password: "text",
 }
 
+const clean = (text: string | null | undefined) => (text ?? "").replace(/\s+/g, " ").trim()
+
+/**
+ * A question title fit to read in a list of results.
+ *
+ * What gets scraped off a page is the label plus whatever sits next to it —
+ * the required asterisk, the hint underneath — and a grid repeats all of it
+ * on every one of its rows. Trimmed at a word boundary it stays recognisable
+ * without filling a column.
+ */
+function tidyLabel(text: string, max = 60) {
+  const trimmed = clean(text)
+    // "…فيه* يمكنك اختيار أكثر من مجال" — the required marker and the hint
+    // after it are page furniture, not part of the question
+    .split(/[*＊]/)[0]
+    .trim()
+  if (trimmed.length <= max) return trimmed
+  const cut = trimmed.slice(0, max)
+  const lastSpace = cut.lastIndexOf(" ")
+  return `${(lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trim()}…`
+}
+
+/**
+ * The question a group of radios or checkboxes is asking.
+ *
+ * None of the inputs carries it: the wording sits above them, and where it
+ * sits depends on how the page was built. A `<legend>` is the tidy case; a
+ * grid of languages against levels puts it in the row's own header, which is
+ * what makes each row a question of its own; and most hand-written forms just
+ * drop a label at the top of the block. Falling back to the `name` attribute
+ * would leave the summary listing questions called "lvl_en".
+ */
+function groupLabel(control: Element, doc: Document): string {
+  const legend = control.closest("fieldset")?.querySelector("legend")?.textContent
+  if (clean(legend)) return tidyLabel(legend ?? "")
+
+  // in a grid, the row header names the thing being rated
+  const row = control.closest("tr")
+  if (row) {
+    const rowHeader = tidyLabel(row.querySelector("th")?.textContent ?? "")
+    // the grid's own title repeats on every row, so it is kept short
+    const above = tidyLabel(headingBefore(control.closest("table"), doc), 28)
+    if (rowHeader) return above ? `${above} — ${rowHeader}` : rowHeader
+  }
+
+  // otherwise: the nearest text above the group that is not part of an option
+  let node: Element | null = control.parentElement
+  while (node && node !== doc.body) {
+    const heading = [...node.children].find(
+      (child) =>
+        /^(label|legend|h[1-6]|p|strong|b)$/i.test(child.tagName) &&
+        !child.contains(control) &&
+        // a label wrapping another radio is a sibling *option*, not the
+        // question — taking it would title the question after one of its
+        // own answers
+        !child.querySelector("input, select, textarea") &&
+        clean(child.textContent)
+    )
+    if (heading) return tidyLabel(heading.textContent ?? "")
+    node = node.parentElement
+  }
+  return ""
+}
+
+/** The nearest piece of wording sitting above an element. */
+function headingBefore(element: Element | null, doc: Document): string {
+  let node = element
+  while (node && node !== doc.body) {
+    let sibling = node.previousElementSibling
+    while (sibling) {
+      // <p> above a grid is nearly always the hint under the real label
+      if (
+        /^(label|h[1-6]|strong|legend)$/i.test(sibling.tagName) &&
+        clean(sibling.textContent)
+      ) {
+        return clean(sibling.textContent).replace(/\s*\*$/, "")
+      }
+      sibling = sibling.previousElementSibling
+    }
+    node = node.parentElement
+  }
+  return ""
+}
+
 /** The visible text tied to a control: its <label>, then placeholder, then name. */
 function labelFor(control: Element, doc: Document) {
   const id = control.getAttribute("id")
@@ -1076,7 +1161,7 @@ function labelFor(control: Element, doc: Document) {
     const text = (candidate ?? "").replace(/\s+/g, " ").trim()
     // a wrapping label contains the control's own text (an option's caption),
     // which is a poor question title — anything shorter than 2 chars is noise
-    if (text.length > 1) return text.replace(/\s*\*$/, "").trim()
+    if (text.length > 1) return tidyLabel(text)
   }
   return ""
 }
@@ -1115,11 +1200,9 @@ export function extractFieldsFromHtml(raw: string): ExtractedField[] {
 
       let group = groups.get(groupName)
       if (!group) {
-        // the question title sits above the group, not on any one input
-        const fieldset = control.closest("fieldset")
-        const legend = fieldset?.querySelector("legend")?.textContent
         group = {
-          label: (legend ?? "").replace(/\s+/g, " ").trim() || groupName,
+          // the question title sits above the group, never on any one input
+          label: groupLabel(control, doc) || groupName,
           field_type: type === "radio" ? "radio" : "checkbox",
           options: [],
           is_required: required,
@@ -1154,7 +1237,55 @@ export function extractFieldsFromHtml(raw: string): ExtractedField[] {
     })
   }
 
-  return fields.filter((field) => field.label)
+  // never drop one: the layout tags controls by position, so a missing entry
+  // would shift every answer after it onto the wrong question
+  return fields.map((field, index) => ({
+    ...field,
+    label: field.label || `Question ${index + 1}`,
+  }))
+}
+
+/**
+ * Tags every control in an uploaded file with the question it answers.
+ *
+ * In "the file is the form" mode the markup is shown exactly as written, which
+ * means React never sees the inputs and cannot key answers by itself. Each
+ * control instead carries the position of its question in the extracted list;
+ * at render time that position is looked up against the saved questions, so an
+ * answer always lands on the right one — and radios sharing a `name` all point
+ * at the single question they really are.
+ */
+export const FIELD_INDEX_ATTR = "data-lrc-field"
+
+export function annotateFormHtml(raw: string): { html: string; fields: ExtractedField[] } {
+  if (typeof DOMParser === "undefined") return { html: raw, fields: [] }
+
+  const doc = new DOMParser().parseFromString(raw, "text/html")
+  const fields = extractFieldsFromHtml(raw)
+
+  // walk the controls in the same order and with the same grouping the
+  // extractor used, so index N here is question N there
+  const groupIndex = new Map<string, number>()
+  let next = 0
+
+  for (const control of doc.querySelectorAll("input, textarea, select")) {
+    const tag = control.tagName.toLowerCase()
+    const type = (control.getAttribute("type") ?? "text").toLowerCase()
+    if (tag === "input" && ["submit", "button", "reset", "hidden", "image", "file"].includes(type)) {
+      continue
+    }
+
+    if (tag === "input" && (type === "radio" || type === "checkbox")) {
+      const groupName = control.getAttribute("name") ?? `${type}-${next}`
+      if (!groupIndex.has(groupName)) groupIndex.set(groupName, next++)
+      control.setAttribute(FIELD_INDEX_ATTR, String(groupIndex.get(groupName)))
+      continue
+    }
+
+    control.setAttribute(FIELD_INDEX_ATTR, String(next++))
+  }
+
+  return { html: doc.body.innerHTML, fields }
 }
 
 /** True when the first <option> is a real choice rather than a "choose…" line. */
@@ -1332,6 +1463,8 @@ export function splitUploadedHtml(raw: string): {
   css: string
   html: string
   fields: ExtractedField[]
+  /** the whole body, controls and all, for "the file is the form" mode */
+  layoutHtml: string
 } {
   const css: string[] = []
   let rest = raw.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_match, body: string) => {
@@ -1365,6 +1498,7 @@ export function splitUploadedHtml(raw: string): {
       : authorCss,
     html: sanitizeHtml(stripFormMarkup(rest)).trim(),
     fields,
+    layoutHtml: sanitizeHtml(annotateFormHtml(rest).html).trim(),
   }
 }
 
