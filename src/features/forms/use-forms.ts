@@ -34,6 +34,36 @@ export const FIELD_MAPPINGS = [
   { value: "internal_notes", label: "Notes", target: "private" },
 ] as const
 
+/** Question labels that give away which volunteer column they belong to. */
+const MAPPING_HINTS: [string, RegExp][] = [
+  ["full_name", /\b(full ?name|your name)\b|الاسم ?الكامل|الاسم ?الثلاثي|^\s*(الاسم|اسم)/i],
+  ["university_id", /\b(university|student|uni)[ _-]?(id|number|no)\b|الرقم ?الجامعي|رقم ?الطالب/i],
+  ["phone", /\b(phone|mobile|whats ?app)\b|هاتف|جوال|موبايل|واتس/i],
+  ["email", /\b(e-?mail)\b|ايميل|إيميل|بريد/i],
+  ["major", /\b(major|specialisation|specialization|faculty)\b|التخصص|الكليه|الكلية/i],
+  ["city", /\b(city|town|residence|address)\b|المدينه|المدينة|السكن|العنوان/i],
+  ["department", /\b(team|department|committee)\b|الفريق|القسم|اللجنه|اللجنة/i],
+  ["languages", /\b(languages?)\b|اللغات|اللغه|اللغة/i],
+  ["skills", /\b(skills?)\b|المهارات|مهارات/i],
+  ["availability", /\b(availability|available|free ?time)\b|التفرغ|الاوقات|الأوقات|متاح/i],
+]
+
+/**
+ * Guesses which volunteer column a question feeds.
+ *
+ * Used when questions arrive from outside the builder — an uploaded HTML form
+ * — where nobody has picked a mapping yet. A wrong guess is visible and
+ * changeable in the question's own dropdown, so guessing beats leaving every
+ * imported question unmapped.
+ */
+export function guessMapping(label: string): string | null {
+  if (!label?.trim()) return null
+  for (const [target, pattern] of MAPPING_HINTS) {
+    if (pattern.test(label)) return target
+  }
+  return null
+}
+
 export const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: "text", label: "Short text" },
   { value: "textarea", label: "Long text" },

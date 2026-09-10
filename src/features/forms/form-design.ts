@@ -457,6 +457,75 @@ export const DESIGN_PRESETS: DesignPreset[] = [
       buttonStyle: "gradient",
     },
   },
+  {
+    value: "rose",
+    label: "Rose",
+    description: "Warm pink on cream — friendly, good for sign-ups and events",
+    accent: "#e11d48",
+    design: {
+      bgStyle: "glow",
+      bgFrom: "#fff1f2",
+      bgVia: "#fffbeb",
+      bgTo: "#ffe4e6",
+      bgPatternColor: "#fb7185",
+      bgPatternOpacity: 22,
+      cardStyle: "elevated",
+      cardBg: "#fffdfd",
+      cardOpacity: 100,
+      cardBorderColor: "#fecdd3",
+      cardShadow: "lg",
+      questionStyle: "boxed",
+      questionBg: "#fff1f2",
+      questionBorderColor: "#fecdd3",
+      questionTextColor: "#4c0519",
+      questionAccentBar: true,
+      radius: "2xl",
+      accentGradient: true,
+      accentTo: "#f59e0b",
+      headingColor: "#881337",
+      bodyColor: "#9f1239",
+      titleSize: "lg",
+      headerStyle: "overlap",
+      buttonStyle: "gradient",
+      buttonRadius: "pill",
+    },
+  },
+  {
+    value: "slate",
+    label: "Slate",
+    description: "Quiet grey, sharp edges — formal reports and official forms",
+    accent: "#0f172a",
+    design: {
+      bgStyle: "solid",
+      bgFrom: "#f1f5f9",
+      bgVia: "#f1f5f9",
+      bgTo: "#f1f5f9",
+      cardStyle: "outlined",
+      cardBg: "#ffffff",
+      cardOpacity: 100,
+      cardBorderColor: "#cbd5e1",
+      cardShadow: "none",
+      questionStyle: "underline",
+      questionBg: "#ffffff",
+      questionBorderColor: "#cbd5e1",
+      questionTextColor: "#0f172a",
+      questionAccentBar: false,
+      questionNumbers: true,
+      radius: "sm",
+      accentGradient: false,
+      headingColor: "#0f172a",
+      bodyColor: "#475569",
+      density: "compact",
+      width: "normal",
+      titleSize: "md",
+      headerStyle: "minimal",
+      buttonStyle: "solid",
+      buttonRadius: "sm",
+      buttonWidth: "auto",
+      progressBar: false,
+      animate: false,
+    },
+  },
 ]
 
 /* ------------------------------------------------------------------ */
@@ -736,13 +805,246 @@ export function sanitizeCss(css: string) {
     .replace(/<\/?[a-z][\s\S]*?>/gi, "")
 }
 
-/** Pulls the <style> blocks and the visible markup out of an uploaded file. */
-export function splitUploadedHtml(raw: string): { css: string; html: string } {
+/* ------------------------------------------------------------------ *
+ * Keeping an uploaded skin inside the form
+ * ------------------------------------------------------------------ */
+
+/** At-rules whose contents are not selectors and must be left alone. */
+const OPAQUE_AT_RULES = /^@(keyframes|-\w+-keyframes|font-face|page|counter-style|property)/i
+/** At-rules that wrap ordinary rules, so their insides still need scoping. */
+const NESTING_AT_RULES = /^@(media|supports|container|layer|scope)/i
+
+/**
+ * Rewrites one selector so it can only ever match inside the form.
+ *
+ * Page-level selectors are the dangerous ones: a skin that says
+ * `body { display: none }` is asking for the form's page to be blank, not for
+ * the admin screen around the preview to disappear. They are re-pointed at the
+ * form's own root, which is the closest honest equivalent.
+ */
+function scopeSelector(selector: string, scope: string) {
+  let trimmed = selector.trim()
+  if (!trimmed) return ""
+
+  // never let a skin reach the app shell the preview is sitting in; "html body
+  // .x" sheds both page elements, not just the first
+  let stripped = false
+  while (/^(html|body|:root)(?![\w-])/i.test(trimmed)) {
+    trimmed = trimmed.replace(/^(html|body|:root)/i, "").replace(/^\s*>\s*/, "").trim()
+    stripped = true
+  }
+  if (stripped) return trimmed ? `${scope} ${trimmed}` : scope
+
+  if (trimmed === "*") return `${scope}, ${scope} *`
+  // a skin targeting the root hook itself means the root, not a child of it
+  if (trimmed === scope || new RegExp(`^\\${scope}(?![\\w-])`).test(trimmed)) return trimmed
+  return `${scope} ${trimmed}`
+}
+
+/**
+ * Confines a stylesheet to `scope`.
+ *
+ * The live preview renders inside the builder, sharing one document with it,
+ * so an unscoped upload takes the whole admin screen down with it — which is
+ * exactly what happened before this existed. Every rule is walked and pinned
+ * to the form's root; at-rules that wrap other rules are walked into, and the
+ * ones whose bodies are not selectors (`@keyframes`, `@font-face`) are copied
+ * through untouched.
+ */
+export function scopeCss(css: string, scope = ".lrc-page"): string {
+  let out = ""
+  let index = 0
+
+  while (index < css.length) {
+    // everything up to the next block is a selector list or an at-rule head
+    const braceAt = css.indexOf("{", index)
+    if (braceAt === -1) break
+
+    const head = css.slice(index, braceAt).trim()
+
+    // find the matching close brace, counting nesting as we go
+    let depth = 1
+    let cursor = braceAt + 1
+    while (cursor < css.length && depth > 0) {
+      if (css[cursor] === "{") depth++
+      else if (css[cursor] === "}") depth--
+      cursor++
+    }
+    const body = css.slice(braceAt + 1, cursor - 1)
+
+    if (head.startsWith("@")) {
+      if (OPAQUE_AT_RULES.test(head)) {
+        out += `${head}{${body}}`
+      } else if (NESTING_AT_RULES.test(head)) {
+        out += `${head}{${scopeCss(body, scope)}}`
+      }
+      // anything else at the top level (@charset, unknown) is dropped
+    } else {
+      const selectors = head
+        .split(",")
+        .map((selector) => scopeSelector(selector, scope))
+        .filter(Boolean)
+      if (selectors.length) out += `${selectors.join(",")}{${body}}`
+    }
+
+    index = cursor
+  }
+
+  return out
+}
+
+/* ------------------------------------------------------------------ *
+ * Reading the questions out of an uploaded file
+ * ------------------------------------------------------------------ */
+
+export interface ExtractedField {
+  label: string
+  field_type: string
+  options: string[]
+  is_required: boolean
+}
+
+const INPUT_TYPE_MAP: Record<string, string> = {
+  text: "text",
+  email: "email",
+  tel: "phone",
+  number: "number",
+  date: "date",
+  url: "text",
+  search: "text",
+  password: "text",
+}
+
+/** The visible text tied to a control: its <label>, then placeholder, then name. */
+function labelFor(control: Element, doc: Document) {
+  const id = control.getAttribute("id")
+  const byFor = id ? doc.querySelector(`label[for="${CSS.escape(id)}"]`) : null
+  const wrapping = control.closest("label")
+  const previous = control.previousElementSibling
+
+  const candidates = [
+    byFor?.textContent,
+    wrapping?.textContent,
+    previous && /^(label|p|span|h[1-6]|strong|legend)$/i.test(previous.tagName)
+      ? previous.textContent
+      : null,
+    control.getAttribute("aria-label"),
+    control.getAttribute("placeholder"),
+    control.getAttribute("name"),
+  ]
+
+  for (const candidate of candidates) {
+    const text = (candidate ?? "").replace(/\s+/g, " ").trim()
+    // a wrapping label contains the control's own text (an option's caption),
+    // which is a poor question title — anything shorter than 2 chars is noise
+    if (text.length > 1) return text.replace(/\s*\*$/, "").trim()
+  }
+  return ""
+}
+
+/**
+ * Turns the form controls in an uploaded file into questions.
+ *
+ * People who hand-write a form in HTML write the questions there too, and
+ * retyping all of them into the builder afterwards is the kind of busywork
+ * that stops the feature being used at all. Radios and checkboxes sharing a
+ * `name` are one question with several options, the way a browser treats them.
+ */
+export function extractFieldsFromHtml(raw: string): ExtractedField[] {
+  if (typeof DOMParser === "undefined") return []
+  const doc = new DOMParser().parseFromString(raw, "text/html")
+  const fields: ExtractedField[] = []
+  const groups = new Map<string, ExtractedField>()
+
+  for (const control of doc.querySelectorAll("input, textarea, select")) {
+    const tag = control.tagName.toLowerCase()
+    const type = (control.getAttribute("type") ?? "text").toLowerCase()
+
+    if (tag === "input" && ["submit", "button", "reset", "hidden", "image", "file"].includes(type)) {
+      continue
+    }
+
+    const required = control.hasAttribute("required")
+
+    if (tag === "input" && (type === "radio" || type === "checkbox")) {
+      // one question, one option per input — grouped by name like a browser does
+      const groupName = control.getAttribute("name") ?? `${type}-${fields.length}`
+      const option =
+        (control.closest("label")?.textContent ?? "").replace(/\s+/g, " ").trim() ||
+        control.getAttribute("value") ||
+        `Option ${(groups.get(groupName)?.options.length ?? 0) + 1}`
+
+      let group = groups.get(groupName)
+      if (!group) {
+        // the question title sits above the group, not on any one input
+        const fieldset = control.closest("fieldset")
+        const legend = fieldset?.querySelector("legend")?.textContent
+        group = {
+          label: (legend ?? "").replace(/\s+/g, " ").trim() || groupName,
+          field_type: type === "radio" ? "radio" : "checkbox",
+          options: [],
+          is_required: required,
+        }
+        groups.set(groupName, group)
+        fields.push(group)
+      }
+      if (!group.options.includes(option)) group.options.push(option)
+      continue
+    }
+
+    if (tag === "select") {
+      const options = [...control.querySelectorAll("option")]
+        .map((option) => (option.textContent ?? "").replace(/\s+/g, " ").trim())
+        // a blank first option is a placeholder, not a choice
+        .filter((text, index) => text && !(index === 0 && !option0HasValue(control)))
+      fields.push({
+        label: labelFor(control, doc) || "Question",
+        field_type: "select",
+        options,
+        is_required: required,
+      })
+      continue
+    }
+
+    fields.push({
+      label: labelFor(control, doc) || "Question",
+      field_type:
+        tag === "textarea" ? "textarea" : (INPUT_TYPE_MAP[type] ?? "text"),
+      options: [],
+      is_required: required,
+    })
+  }
+
+  return fields.filter((field) => field.label)
+}
+
+/** True when the first <option> is a real choice rather than a "choose…" line. */
+function option0HasValue(select: Element) {
+  const first = select.querySelector("option")
+  return !!first?.getAttribute("value")
+}
+
+/**
+ * Splits an uploaded file into the three things the form can use: its styles,
+ * its decorative markup, and its questions.
+ *
+ * The questions are taken out of the markup, not left in it. A file that
+ * carries its own `<input>`s would otherwise render them as dead decoration
+ * above the real questions — the same form twice, only one half of which
+ * actually records an answer.
+ */
+export function splitUploadedHtml(raw: string): {
+  css: string
+  html: string
+  fields: ExtractedField[]
+} {
   const css: string[] = []
   let rest = raw.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_match, body: string) => {
     css.push(String(body).trim())
     return ""
   })
+
+  const fields = extractFieldsFromHtml(rest)
 
   const bodyMatch = rest.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
   if (bodyMatch) rest = bodyMatch[1]
@@ -753,7 +1055,27 @@ export function splitUploadedHtml(raw: string): { css: string; html: string } {
     .replace(/<head[\s\S]*?<\/head>/gi, "")
     .replace(/<\/?body[^>]*>/gi, "")
 
-  return { css: sanitizeCss(css.join("\n\n")), html: sanitizeHtml(rest).trim() }
+  return {
+    css: sanitizeCss(css.join("\n\n")),
+    html: sanitizeHtml(stripFormMarkup(rest)).trim(),
+    fields,
+  }
+}
+
+/** Drops the parts of an upload the form renders itself, keeping the styling. */
+function stripFormMarkup(html: string) {
+  if (typeof DOMParser === "undefined") return html
+  const doc = new DOMParser().parseFromString(html, "text/html")
+  for (const node of doc.body.querySelectorAll(
+    "form, input, textarea, select, label, fieldset, legend, button"
+  )) {
+    node.remove()
+  }
+  // wrappers left holding nothing are just empty boxes on the page
+  for (const node of [...doc.body.querySelectorAll("div, section, p, span")].reverse()) {
+    if (!node.textContent?.trim() && !node.querySelector("img, svg, hr, video")) node.remove()
+  }
+  return doc.body.innerHTML
 }
 
 /** The class hooks a custom skin can target — shown in the designer. */

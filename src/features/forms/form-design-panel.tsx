@@ -1,5 +1,5 @@
 import { useRef } from "react"
-import { Download, Palette, Trash2, Upload, Wand2 } from "lucide-react"
+import { ChevronDown, Download, Palette, Trash2, Upload, Wand2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,7 @@ import {
   splitUploadedHtml,
   starterSkinHtml,
 } from "./form-design"
+import type { ExtractedField } from "./form-design"
 import type { FormDesign } from "@/types/database.types"
 
 type Design = Required<FormDesign>
@@ -42,6 +43,8 @@ interface DesignPanelProps {
   customHeaderHtml: string
   onCustomHeaderHtml: (html: string) => void
   formTitle: string
+  /** offered when an uploaded file carries its own questions */
+  onImportFields: (fields: ExtractedField[]) => void
 }
 
 /* ------------------------------------------------------------------ */
@@ -91,6 +94,26 @@ function ChoiceGrid<T extends string>({
     </div>
   )
 }
+
+/**
+ * One folded-away group of controls.
+ *
+ * The designer grew to eight tabs of knobs, which is a lot of decisions to
+ * make before a form can go out. They all still work — they are just shut by
+ * default, so the normal path is "pick a template and save".
+ */
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="group rounded-xl border border-border">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-foreground">
+        {title}
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="flex flex-col gap-4 border-t border-border px-3 py-3">{children}</div>
+    </details>
+  )
+}
+
 
 function ColorField({
   label,
@@ -203,6 +226,7 @@ export function FormDesignPanel({
   customHeaderHtml,
   onCustomHeaderHtml,
   formTitle,
+  onImportFields,
 }: DesignPanelProps) {
   const skinInputRef = useRef<HTMLInputElement>(null)
 
@@ -212,14 +236,24 @@ export function FormDesignPanel({
       return
     }
     const raw = await file.text()
-    const { css, html } = splitUploadedHtml(raw)
-    if (!css && !html) {
-      toast.error("No <style> or markup found in that file")
+    const { css, html, fields } = splitUploadedHtml(raw)
+    if (!css && !html && !fields.length) {
+      toast.error("No styles, markup or questions found in that file")
       return
     }
     onCustomCss(css)
     onCustomHeaderHtml(html)
-    toast.success("Skin applied — check the preview")
+
+    // a hand-written form carries its questions in the same file; importing
+    // them is the difference between a skin and an actual working form
+    if (fields.length) {
+      onImportFields(fields)
+      toast.success(
+        `Design applied and ${fields.length} question${fields.length === 1 ? "" : "s"} imported`
+      )
+    } else {
+      toast.success("Design applied — check the preview")
+    }
   }
 
   function downloadStarter() {
@@ -236,15 +270,10 @@ export function FormDesignPanel({
 
   return (
     <Tabs defaultValue="presets">
-      <TabsList className="w-full flex-wrap">
-        <TabsTrigger value="presets">Presets</TabsTrigger>
-        <TabsTrigger value="background">Background</TabsTrigger>
-        <TabsTrigger value="card">Card</TabsTrigger>
-        <TabsTrigger value="questions">Questions</TabsTrigger>
-        <TabsTrigger value="type">Type</TabsTrigger>
-        <TabsTrigger value="header">Cover</TabsTrigger>
-        <TabsTrigger value="button">Button</TabsTrigger>
-        <TabsTrigger value="custom">HTML</TabsTrigger>
+      <TabsList className="w-full">
+        <TabsTrigger value="presets">Templates</TabsTrigger>
+        <TabsTrigger value="tweak">Fine-tune</TabsTrigger>
+        <TabsTrigger value="custom">Upload HTML</TabsTrigger>
       </TabsList>
 
       {/* ---------------- presets ---------------- */}
@@ -356,8 +385,10 @@ export function FormDesignPanel({
         </Section>
       </TabsContent>
 
+      {/* ---------------- everything else, folded away ---------------- */}
+      <TabsContent value="tweak" className="flex flex-col gap-2 pt-3">
       {/* ---------------- background ---------------- */}
-      <TabsContent value="background" className="flex flex-col gap-4 pt-3">
+      <Group title="Background">
         <Section label="Background style">
           <ChoiceGrid
             options={BG_STYLES}
@@ -410,10 +441,10 @@ export function FormDesignPanel({
             />
           </Section>
         )}
-      </TabsContent>
+      </Group>
 
       {/* ---------------- card ---------------- */}
-      <TabsContent value="card" className="flex flex-col gap-4 pt-3">
+      <Group title="The card">
         <Section label="Card style">
           <ChoiceGrid
             options={CARD_STYLES}
@@ -466,10 +497,10 @@ export function FormDesignPanel({
             onChange={(v) => onChange({ showLogo: v })}
           />
         </Section>
-      </TabsContent>
+      </Group>
 
       {/* ---------------- questions ---------------- */}
-      <TabsContent value="questions" className="flex flex-col gap-4 pt-3">
+      <Group title="Questions">
         <Section label="Question block style" hint="The area holding each question and its answer.">
           <ChoiceGrid
             options={QUESTION_STYLES}
@@ -534,10 +565,10 @@ export function FormDesignPanel({
             onChange={(v) => onChange({ questionAccentBar: v })}
           />
         </Section>
-      </TabsContent>
+      </Group>
 
       {/* ---------------- typography ---------------- */}
-      <TabsContent value="type" className="flex flex-col gap-4 pt-3">
+      <Group title="Text & fonts">
         <Section label="Font" hint="Arabic faces that stay readable on a phone.">
           <div className="flex flex-col gap-1.5">
             {FONT_OPTIONS.map((font) => (
@@ -590,10 +621,10 @@ export function FormDesignPanel({
             onChange={(e) => onChange({ footerNote: e.target.value })}
           />
         </Section>
-      </TabsContent>
+      </Group>
 
       {/* ---------------- header / cover ---------------- */}
-      <TabsContent value="header" className="flex flex-col gap-4 pt-3">
+      <Group title="Cover image">
         <Section label="Cover layout">
           <ChoiceGrid
             options={HEADER_STYLES}
@@ -619,10 +650,10 @@ export function FormDesignPanel({
             max={80}
           />
         </Section>
-      </TabsContent>
+      </Group>
 
       {/* ---------------- button ---------------- */}
-      <TabsContent value="button" className="flex flex-col gap-4 pt-3">
+      <Group title="Submit button">
         <Section label="Submit button style">
           <ChoiceGrid
             options={BUTTON_STYLES}
@@ -658,13 +689,14 @@ export function FormDesignPanel({
             onChange={(e) => onChange({ buttonLabel: e.target.value })}
           />
         </Section>
+      </Group>
       </TabsContent>
 
       {/* ---------------- custom skin ---------------- */}
       <TabsContent value="custom" className="flex flex-col gap-4 pt-3">
         <Section
           label="Upload a ready-made HTML design"
-          hint="Upload an .html file — we take its <style> and markup and apply them on top. Scripts are stripped, because the form page is public."
+          hint="Upload an .html file. Its <style> becomes the form's look, its questions become real questions, and the rest is shown above them. Scripts are stripped — the form page is public."
         >
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => skinInputRef.current?.click()}>

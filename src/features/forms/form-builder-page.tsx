@@ -39,12 +39,14 @@ import { useEvents } from "@/features/events/use-events"
 import {
   FIELD_MAPPINGS,
   FIELD_TYPES,
+  guessMapping,
   slugify,
   useForm,
   useFormFields,
   useSaveForm,
 } from "./use-forms"
 import { DEFAULT_DESIGN, resolveDesign, sanitizeCss, sanitizeHtml } from "./form-design"
+import type { ExtractedField } from "./form-design"
 import { FormDesignPanel } from "./form-design-panel"
 import { FormRenderer, previewFields, type AnswerMap } from "./form-renderer"
 import { supabase } from "@/lib/supabase"
@@ -163,6 +165,31 @@ export function FormBuilderPage() {
       )
     }
   }, [existingFields])
+
+  /**
+   * Takes the questions found in an uploaded HTML file.
+   *
+   * Replaces the draft rather than appending: somebody who uploads a form they
+   * wrote by hand means *that* to be the form, and ending up with their five
+   * questions plus a stray empty one is nobody's intent. Existing questions are
+   * only kept when the upload had none of its own.
+   */
+  function importFields(imported: ExtractedField[]) {
+    if (!imported.length) return
+    setFields(
+      imported.map((field) => ({
+        key: crypto.randomUUID(),
+        label: field.label,
+        help_text: "",
+        field_type: (FIELD_TYPES.some((t) => t.value === field.field_type)
+          ? field.field_type
+          : "text") as FormFieldType,
+        options: field.options,
+        is_required: field.is_required,
+        maps_to: guessMapping(field.label),
+      }))
+    )
+  }
 
   function updateField(key: string, patch: Partial<DraftField>) {
     setFields((prev) => prev.map((f) => (f.key === key ? { ...f, ...patch } : f)))
@@ -305,7 +332,9 @@ export function FormBuilderPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* pinned: a custom skin used to be able to push this off the page, and a
+          builder you cannot save from is a builder that loses work */}
+      <div className="sticky top-0 z-30 -mx-1 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/95 px-1 py-2 backdrop-blur">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" render={<Link to="/forms" />}>
             <ArrowLeft className="size-4" />
@@ -554,6 +583,7 @@ export function FormBuilderPage() {
                     customHeaderHtml={customHeaderHtml}
                     onCustomHeaderHtml={setCustomHeaderHtml}
                     formTitle={title}
+                    onImportFields={importFields}
                   />
                 </CardContent>
               </Card>

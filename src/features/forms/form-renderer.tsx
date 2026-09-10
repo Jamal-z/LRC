@@ -16,6 +16,7 @@ import {
   resolveDesign,
   rgba,
   sanitizeCss,
+  scopeCss,
   sanitizeHtml,
   submitButtonProps,
   titleSizeFor,
@@ -108,7 +109,9 @@ export function FormRenderer({
     "--lrc-font": fontStack(d.font),
   } as React.CSSProperties
 
-  const scopedCss = form.custom_css ? sanitizeCss(form.custom_css) : ""
+  // pinned to .lrc-page: the builder renders this preview in its own document,
+  // so an unscoped skin would take the admin screen down with the form
+  const scopedCss = form.custom_css ? scopeCss(sanitizeCss(form.custom_css)) : ""
   const surface = inputSurface(d)
 
   function renderControl(field: FormFieldRow) {
