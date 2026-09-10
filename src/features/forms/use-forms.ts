@@ -43,7 +43,8 @@ const MAPPING_HINTS: [string, RegExp][] = [
   ["major", /\b(major|specialisation|specialization|faculty)\b|التخصص|الكليه|الكلية/i],
   ["city", /\b(city|town|residence|address)\b|المدينه|المدينة|السكن|العنوان/i],
   ["department", /\b(team|department|committee)\b|الفريق|القسم|اللجنه|اللجنة/i],
-  ["languages", /\b(languages?)\b|اللغات|اللغه|اللغة/i],
+  // "لغات أخرى" is a language question too, so the article is optional
+  ["languages", /\b(languages?)\b|لغات|اللغه|اللغة/i],
   ["skills", /\b(skills?)\b|المهارات|مهارات/i],
   ["availability", /\b(availability|available|free ?time)\b|التفرغ|الاوقات|الأوقات|متاح/i],
 ]
@@ -75,6 +76,65 @@ export const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: "radio", label: "Multiple choice (one)" },
   { value: "checkbox", label: "Checkboxes (many)" },
 ]
+
+/**
+ * Volunteer columns that hold a list rather than a single fact.
+ *
+ * A person has one phone number and one university ID, but they speak several
+ * languages and have several skills — so several questions may legitimately
+ * feed one of these, and the answers add up instead of replacing each other.
+ */
+const COMBINABLE_TARGETS = new Set(["languages", "skills", "availability", "internal_notes"])
+
+/** "اللغات التي تتقنها — الإنجليزية" is really asking about الإنجليزية. */
+function shortLabel(label: string) {
+  const parts = label.split(/\s+[–—]\s+/)
+  return (parts[parts.length - 1] ?? label).trim()
+}
+
+/**
+ * Reads a response into the volunteer columns its questions are mapped to.
+ *
+ * A grid of languages against levels arrives as one question per language, all
+ * of them pointing at the same column. Taking the last one would file somebody
+ * who speaks four languages as speaking one, so the answers are gathered and
+ * each keeps the name of the question it answered — "الإنجليزية: متقدم" —
+ * which is the only form in which a level means anything at all.
+ */
+export function collectMappedAnswers(
+  fields: FormFieldRow[],
+  answers: Record<string, string | string[] | null>
+) {
+  const mapped: Record<string, string> = {}
+  const lists = new Map<string, { label: string; value: string }[]>()
+
+  for (const field of fields) {
+    if (!field.maps_to) continue
+    const raw = answers[field.id]
+    const value = String(Array.isArray(raw) ? raw.join("، ") : (raw ?? "")).trim()
+    if (!value) continue
+
+    if (COMBINABLE_TARGETS.has(field.maps_to)) {
+      lists.set(field.maps_to, [
+        ...(lists.get(field.maps_to) ?? []),
+        { label: shortLabel(field.label), value },
+      ])
+    } else {
+      mapped[field.maps_to] = value
+    }
+  }
+
+  for (const [target, entries] of lists) {
+    // one question feeding the column already reads as a list of its own; it
+    // is only when several do that each needs saying which is which
+    mapped[target] =
+      entries.length === 1
+        ? entries[0].value
+        : entries.map((entry) => `${entry.label}: ${entry.value}`).join("، ")
+  }
+
+  return mapped
+}
 
 /**
  * Finds the volunteer a form response belongs to.
@@ -283,13 +343,7 @@ export function useReviewResponse() {
 
       if (decision === "approved" && form.destination !== "none") {
         // collect the mapped answers by their target column
-        const mapped: Record<string, string> = {}
-        for (const field of fields) {
-          if (!field.maps_to) continue
-          const raw = response.answers[field.id]
-          const value = Array.isArray(raw) ? raw.join("، ") : (raw ?? "")
-          if (value) mapped[field.maps_to] = String(value).trim()
-        }
+        const mapped = collectMappedAnswers(fields, response.answers)
 
         const fullName = mapped.full_name
         if (!fullName) {
