@@ -11,6 +11,8 @@ import {
   BG_STYLES,
   BUTTON_STYLES,
   CARD_STYLES,
+  CHOICE_COLUMN_OPTIONS,
+  CHOICE_STYLES,
   COVER_HEIGHT_OPTIONS,
   DENSITY_OPTIONS,
   DESIGN_PRESETS,
@@ -506,6 +508,26 @@ export function FormDesignPanel({
             options={QUESTION_STYLES}
             value={design.questionStyle}
             onChange={(v) => onChange({ questionStyle: v })}
+          />
+        </Section>
+
+        <Section
+          label="Answer options"
+          hint="How the choices on a multiple-choice question are drawn. Wide cards split an option written as “Name – what it means” into a title and a line under it."
+        >
+          <ChoiceGrid
+            options={CHOICE_STYLES}
+            value={design.choiceStyle}
+            onChange={(v) => onChange({ choiceStyle: v })}
+          />
+        </Section>
+
+        <Section label="Options per row" hint="“Fit” puts as many on a line as they take.">
+          <ChoiceGrid
+            options={CHOICE_COLUMN_OPTIONS}
+            value={design.choiceColumns}
+            onChange={(v) => onChange({ choiceColumns: v })}
+            columns={4}
           />
         </Section>
 

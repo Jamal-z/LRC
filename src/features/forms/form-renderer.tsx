@@ -15,6 +15,8 @@ import {
   questionStyleProps,
   resolveDesign,
   rgba,
+  choiceListProps,
+  choiceProps,
   sanitizeCss,
   scopeCss,
   sanitizeHtml,
@@ -48,6 +50,25 @@ interface FormRendererProps {
   submitted?: boolean
   /** the builder's live preview: no font sheet, and the submit button is inert */
   preview?: boolean
+}
+
+/**
+ * The text on one option.
+ *
+ * Wide cards exist for options that carry an explanation, and people write
+ * those the same way every time: the name, a dash, then what it means. Split
+ * on that dash and the card reads as a title with a line under it, without
+ * asking anyone to fill in a second box.
+ */
+function ChoiceLabel({ option, asCard }: { option: string; asCard: boolean }) {
+  const split = asCard ? option.match(/^(.{2,60}?)\s+[–—-]\s+(.+)$/s) : null
+  if (!split) return <span style={{ fontSize: "0.95rem" }}>{option}</span>
+  return (
+    <span style={{ fontSize: "0.95rem" }}>
+      <strong style={{ display: "block", fontWeight: 700 }}>{split[1]}</strong>
+      <span style={{ opacity: 0.75, fontSize: "0.88rem" }}>{split[2]}</span>
+    </span>
+  )
 }
 
 /** Loads a Google font once per family, only on the real public page. */
@@ -129,18 +150,8 @@ export function FormRenderer({
       outline: "none",
     }
 
-    const choiceStyle = (checked: boolean): React.CSSProperties => ({
-      display: "flex",
-      alignItems: "center",
-      gap: "0.65rem",
-      padding: "0.7rem 0.9rem",
-      borderRadius: inputRadius,
-      cursor: "pointer",
-      background: checked ? rgba(accent, 0.14) : surface.background,
-      border: `1px solid ${checked ? accent : d.questionBorderColor}`,
-      color: surface.color,
-      transition: d.animate ? "all 0.15s ease" : undefined,
-    })
+    const choiceStyle = (checked: boolean) =>
+      choiceProps(d, accent, checked, surface, inputRadius)
 
     switch (field.field_type) {
       case "textarea":
@@ -173,7 +184,7 @@ export function FormRenderer({
 
       case "radio":
         return (
-          <div style={{ display: "grid", gap: "0.5rem" }}>
+          <div className="lrc-choices" style={choiceListProps(d)}>
             {field.options.map((option) => (
               <label key={option} className="lrc-choice" style={choiceStyle(value === option)}>
                 <input
@@ -183,7 +194,7 @@ export function FormRenderer({
                   style={{ accentColor: accent, width: "1.05rem", height: "1.05rem" }}
                   onChange={() => onAnswer(field.id, option)}
                 />
-                <span style={{ fontSize: "0.95rem" }}>{option}</span>
+                <ChoiceLabel option={option} asCard={d.choiceStyle === "card"} />
               </label>
             ))}
           </div>
@@ -192,7 +203,7 @@ export function FormRenderer({
       case "checkbox": {
         const selected = Array.isArray(value) ? value : []
         return (
-          <div style={{ display: "grid", gap: "0.5rem" }}>
+          <div className="lrc-choices" style={choiceListProps(d)}>
             {field.options.map((option) => (
               <label
                 key={option}
@@ -212,7 +223,7 @@ export function FormRenderer({
                     )
                   }
                 />
-                <span style={{ fontSize: "0.95rem" }}>{option}</span>
+                <ChoiceLabel option={option} asCard={d.choiceStyle === "card"} />
               </label>
             ))}
           </div>

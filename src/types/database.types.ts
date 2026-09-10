@@ -555,6 +555,11 @@ export type FormDesign = {
   questionNumbers?: boolean
   questionTextColor?: string
 
+  /** how the answers to a multiple-choice question are laid out */
+  choiceStyle?: "list" | "pill" | "box" | "card"
+  /** how many across; "auto" fits as many per row as the text allows */
+  choiceColumns?: "auto" | "1" | "2" | "3"
+
   headingColor?: string
   bodyColor?: string
   font?: string

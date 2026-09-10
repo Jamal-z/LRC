@@ -36,6 +36,8 @@ export const DEFAULT_DESIGN: Required<FormDesign> = {
   questionAccentBar: true,
   questionNumbers: true,
   questionTextColor: "#0f172a",
+  choiceStyle: "box",
+  choiceColumns: "auto",
 
   headingColor: "#0f172a",
   bodyColor: "#475569",
@@ -104,6 +106,20 @@ export const QUESTION_STYLES = [
   { value: "underline", label: "Underline" },
   { value: "flat", label: "No frame" },
   { value: "split", label: "Side by side" },
+] as const
+
+export const CHOICE_STYLES = [
+  { value: "box", label: "Boxes" },
+  { value: "pill", label: "Pills" },
+  { value: "card", label: "Wide cards" },
+  { value: "list", label: "Plain list" },
+] as const
+
+export const CHOICE_COLUMN_OPTIONS = [
+  { value: "auto", label: "Fit" },
+  { value: "1", label: "1" },
+  { value: "2", label: "2" },
+  { value: "3", label: "3" },
 ] as const
 
 export const HEADER_STYLES = [
@@ -699,6 +715,79 @@ export function questionStyleProps(d: Required<FormDesign>, accent: string): CSS
 }
 
 /** True when a colour is dark enough that white text reads better on it. */
+/**
+ * How a set of choices is laid out.
+ *
+ * Options are wildly uneven — "نعم" beside a whole sentence — so the default
+ * lets the row fill itself: short answers sit side by side and long ones take
+ * the width they need, instead of one stack of mostly-empty rows.
+ */
+export function choiceListProps(d: Required<FormDesign>): CSSProperties {
+  const gap = d.choiceStyle === "pill" ? "0.5rem" : "0.6rem"
+
+  if (d.choiceStyle === "card" || d.choiceColumns === "1") {
+    return { display: "grid", gap, gridTemplateColumns: "1fr" }
+  }
+  if (d.choiceColumns === "auto") {
+    // pills hug their text; boxes line up in whatever fits at ~14rem
+    return d.choiceStyle === "pill" || d.choiceStyle === "list"
+      ? { display: "flex", flexWrap: "wrap", gap }
+      : { display: "grid", gap, gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))" }
+  }
+  return { display: "grid", gap, gridTemplateColumns: `repeat(${d.choiceColumns}, minmax(0, 1fr))` }
+}
+
+/** One selectable option, in the shape the designer asked for. */
+export function choiceProps(
+  d: Required<FormDesign>,
+  accent: string,
+  checked: boolean,
+  surface: { background: string; color: string },
+  inputRadius: string
+): CSSProperties {
+  const base: CSSProperties = {
+    display: "flex",
+    alignItems: d.choiceStyle === "card" ? "flex-start" : "center",
+    gap: "0.65rem",
+    cursor: "pointer",
+    color: surface.color,
+    transition: d.animate ? "all 0.15s ease" : undefined,
+  }
+
+  if (d.choiceStyle === "list") {
+    return { ...base, padding: "0.25rem 0", background: "transparent", border: "none" }
+  }
+
+  const border = `2px solid ${checked ? accent : d.questionBorderColor}`
+  const background = checked ? rgba(accent, 0.12) : surface.background
+
+  if (d.choiceStyle === "pill") {
+    return {
+      ...base,
+      padding: "0.6rem 1.1rem",
+      borderRadius: "9999px",
+      border,
+      background,
+      fontSize: "0.9rem",
+      fontWeight: 500,
+    }
+  }
+
+  if (d.choiceStyle === "card") {
+    return {
+      ...base,
+      padding: "0.85rem 1rem",
+      borderRadius: inputRadius,
+      border,
+      background,
+      lineHeight: 1.6,
+      boxShadow: checked ? `0 8px 20px -12px ${accent}` : undefined,
+    }
+  }
+
+  return { ...base, padding: "0.7rem 0.9rem", borderRadius: inputRadius, border, background }
+}
+
 export function isDark(hex: string) {
   return contrastText(hex) === "#ffffff"
 }
@@ -1311,6 +1400,7 @@ export const SKIN_HOOKS = [
   { name: ".lrc-question", what: "one question block" },
   { name: ".lrc-label", what: "a question label" },
   { name: ".lrc-hint", what: "the help text under a label" },
+  { name: ".lrc-choices", what: "the row of options" },
   { name: ".lrc-choice", what: "one radio or checkbox option" },
   { name: ".lrc-input", what: "every input" },
   { name: ".lrc-submit", what: "the submit button" },
