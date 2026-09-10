@@ -1071,8 +1071,14 @@ function stripFormMarkup(html: string) {
   )) {
     node.remove()
   }
-  // wrappers left holding nothing are just empty boxes on the page
+  // Wrappers left holding nothing are the husks of the form we just removed.
+  // A styled empty box is not a husk though — decorative shapes and dividers
+  // are drawn exactly that way, and throwing them out would quietly delete
+  // half of somebody's design.
   for (const node of [...doc.body.querySelectorAll("div, section, p, span")].reverse()) {
+    const decorative =
+      node.hasAttribute("style") || node.hasAttribute("class") || node.hasAttribute("id")
+    if (decorative) continue
     if (!node.textContent?.trim() && !node.querySelector("img, svg, hr, video")) node.remove()
   }
   return doc.body.innerHTML

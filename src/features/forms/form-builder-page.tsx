@@ -7,6 +7,7 @@ import {
   Copy,
   ExternalLink,
   Eye,
+  EyeOff,
   GripVertical,
   ImagePlus,
   Monitor,
@@ -49,6 +50,7 @@ import { DEFAULT_DESIGN, resolveDesign, sanitizeCss, sanitizeHtml } from "./form
 import type { ExtractedField } from "./form-design"
 import { FormDesignPanel } from "./form-design-panel"
 import { FormRenderer, previewFields, type AnswerMap } from "./form-renderer"
+import { PreviewFrame } from "./preview-frame"
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import type {
@@ -119,6 +121,7 @@ export function FormBuilderPage() {
   const [fields, setFields] = useState<DraftField[]>([])
 
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop")
+  const [showPreview, setShowPreview] = useState(true)
   const [previewAnswers, setPreviewAnswers] = useState<AnswerMap>({})
 
   useEffect(() => {
@@ -355,13 +358,26 @@ export function FormBuilderPage() {
               Open live form
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview((shown) => !shown)}
+          >
+            {showPreview ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            {showPreview ? "Hide preview" : "Show preview"}
+          </Button>
           <Button onClick={handleSave} disabled={saveForm.isPending}>
             {saveForm.isPending ? "Saving…" : isNew ? "Create form" : "Save changes"}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-4",
+          showPreview && "xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]"
+        )}
+      >
         {/* ---------------- editor ---------------- */}
         <div className="min-w-0">
           <Tabs defaultValue="questions">
@@ -785,8 +801,9 @@ export function FormBuilderPage() {
         </div>
 
         {/* ---------------- live preview ---------------- */}
+        {showPreview && (
         <div className="min-w-0">
-          <div className="sticky top-4 flex flex-col gap-2">
+          <div className="sticky top-14 flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Eye className="size-4" />
@@ -809,6 +826,16 @@ export function FormBuilderPage() {
                 >
                   <Smartphone className="size-3.5" />
                 </Button>
+                {/* the way out when a skin makes the preview unusable */}
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Hide the preview"
+                  title="Hide the preview"
+                  onClick={() => setShowPreview(false)}
+                >
+                  <EyeOff className="size-3.5" />
+                </Button>
               </div>
             </div>
 
@@ -818,18 +845,20 @@ export function FormBuilderPage() {
                 previewDevice === "mobile" && "mx-auto w-[24rem] max-w-full rounded-[2rem] border-8 border-slate-800"
               )}
             >
-              <div className="max-h-[calc(100svh-9rem)] overflow-y-auto">
-                <FormRenderer
-                  form={previewForm}
-                  fields={previewFieldRows}
-                  answers={previewAnswers}
-                  errors={{}}
-                  onAnswer={(fieldId, value) =>
-                    setPreviewAnswers((prev) => ({ ...prev, [fieldId]: value }))
-                  }
-                  onSubmit={(e) => e.preventDefault()}
-                  preview
-                />
+              <div className="h-[calc(100svh-9rem)]">
+                <PreviewFrame className="h-full w-full border-0">
+                  <FormRenderer
+                    form={previewForm}
+                    fields={previewFieldRows}
+                    answers={previewAnswers}
+                    errors={{}}
+                    onAnswer={(fieldId, value) =>
+                      setPreviewAnswers((prev) => ({ ...prev, [fieldId]: value }))
+                    }
+                    onSubmit={(e) => e.preventDefault()}
+                    preview
+                  />
+                </PreviewFrame>
               </div>
             </div>
 
@@ -840,6 +869,7 @@ export function FormBuilderPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   )
