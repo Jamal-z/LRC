@@ -3,6 +3,20 @@ import { FIELD_INDEX_ATTR } from "./form-design"
 import type { FormFieldRow } from "@/types/database.types"
 
 /**
+ * What a ticked option should be recorded as.
+ *
+ * The wording a person read is what belongs in the answer: `value="2"` beside
+ * a pill that says "الثانية" would file the choice as "2" and leave the
+ * summary counting an option nobody was offered. The visible text is what the
+ * question's options were built from, so it is what an answer has to match;
+ * the value only stands in when there is no wording, as in a grid cell.
+ */
+function optionText(input: HTMLInputElement) {
+  const label = input.labels?.[0]?.textContent ?? input.closest("label")?.textContent ?? ""
+  return label.replace(/\s+/g, " ").trim() || input.value.trim()
+}
+
+/**
  * "The file is the form": the uploaded markup is the form.
  *
  * Redrawing somebody's HTML with our own elements can get close, never
@@ -17,20 +31,6 @@ import type { FormFieldRow } from "@/types/database.types"
  * it back, which is also why the fields stay responsive no matter how exotic
  * the markup around them is.
  */
-/**
- * What a ticked option should be recorded as.
- *
- * The wording a person read is what belongs in the answer: `value="2"` beside
- * a pill that says "الثانية" would file the choice as "2" and leave the
- * summary counting an option nobody was offered. The visible text is what the
- * question's options were built from, so it is what an answer has to match;
- * the value only stands in when there is no wording, as in a grid cell.
- */
-function optionText(input: HTMLInputElement) {
-  const label = input.labels?.[0]?.textContent ?? input.closest("label")?.textContent ?? ""
-  return label.replace(/\s+/g, " ").trim() || input.value.trim()
-}
-
 export function HtmlLayout({
   html,
   fields,
@@ -51,6 +51,13 @@ export function HtmlLayout({
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+
+    // Written here rather than through dangerouslySetInnerHTML, which React
+    // re-applies on renders it considers a change — and re-applying it throws
+    // away every node the visitor was using, so a letter typed into a box
+    // vanished the moment it was recorded. This runs once per markup change
+    // and React never owns these children, so what is typed stays typed.
+    container.innerHTML = html
 
     function fieldFor(control: Element) {
       const index = Number(control.getAttribute(FIELD_INDEX_ATTR))
@@ -93,13 +100,7 @@ export function HtmlLayout({
       container.removeEventListener("change", handle)
       container.removeEventListener("input", handle)
     }
-  }, [])
+  }, [html])
 
-  return (
-    <div
-      ref={containerRef}
-      className="lrc-html-layout"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  )
+  return <div ref={containerRef} className="lrc-html-layout" />
 }
