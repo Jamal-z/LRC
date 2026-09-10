@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import { normalizeName } from "@/lib/names"
+import { collectMappedAnswers } from "@/features/forms/use-forms"
 import type {
   FormFieldRow,
   FormResponseRow,
@@ -232,14 +233,14 @@ export function useFormApplicants(formId: string | undefined) {
       )
 
       return ((responses ?? []) as unknown as FormResponseRow[]).map((response) => {
-        const mapped: Record<string, string> = {}
-        const answers: { label: string; value: string }[] = []
-
-        for (const field of fieldRows) {
-          const value = answerToText(response.answers[field.id]).trim()
-          answers.push({ label: field.label, value })
-          if (field.maps_to && value) mapped[field.maps_to] = value
-        }
+        // shared with the accept-a-response path so an applicant is read the
+        // same way whichever door they came through — in particular a language
+        // grid, whose nine rows all feed the one column
+        const mapped = collectMappedAnswers(fieldRows, response.answers)
+        const answers = fieldRows.map((field) => ({
+          label: field.label,
+          value: answerToText(response.answers[field.id]).trim(),
+        }))
 
         return {
           responseId: response.id,
@@ -277,13 +278,12 @@ export function useFormApplicant(responseId: string | undefined) {
         supabase.from("form_fields").select("*").eq("form_id", row.form_id).order("position"),
       ])
 
-      const mapped: Record<string, string> = {}
-      const answers: { label: string; value: string }[] = []
-      for (const field of (fields ?? []) as unknown as FormFieldRow[]) {
-        const value = answerToText(row.answers[field.id]).trim()
-        answers.push({ label: field.label, value })
-        if (field.maps_to && value) mapped[field.maps_to] = value
-      }
+      const fieldRows = (fields ?? []) as unknown as FormFieldRow[]
+      const mapped = collectMappedAnswers(fieldRows, row.answers)
+      const answers = fieldRows.map((field) => ({
+        label: field.label,
+        value: answerToText(row.answers[field.id]).trim(),
+      }))
 
       return {
         responseId: row.id,

@@ -29,7 +29,6 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/features/auth/auth-context"
 import { useDepartments, useMyLedDepartmentIds } from "@/features/departments/use-departments"
 import { useSaveVolunteer, useTags, type VolunteerWithRelations } from "./use-volunteers"
-import { VOLUNTEER_STATUS_LABELS } from "@/lib/constants"
 import type { VolunteerStatus } from "@/types/database.types"
 
 async function uploadAvatar(file: File): Promise<string> {
@@ -309,28 +308,6 @@ export function VolunteerFormDialog({
                 )}
               />
               <FieldError errors={[errors.primary_department_id]} />
-            </Field>
-
-            <Field>
-              <FieldLabel>Status</FieldLabel>
-              <Controller
-                control={control}
-                name="status"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "new")}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(VOLUNTEER_STATUS_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
             </Field>
 
             <Field data-invalid={!!errors.join_date}>

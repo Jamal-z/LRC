@@ -29,14 +29,12 @@ import {
 } from "recharts"
 import { EmptyState } from "@/components/shared/empty-state"
 import { exportToExcel, type ExportColumn } from "@/lib/export"
-import { VOLUNTEER_STATUS_LABELS } from "@/lib/constants"
-import type { VolunteerStatus } from "@/types/database.types"
 
 const PIE_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "#94a3b8"]
 
 interface ReportsData {
   volunteersByDepartment: { department: string; total: number; active: number; inactive: number }[]
-  volunteersByStatus: { status: string; count: number }[]
+  volunteersByTag: { tag: string; count: number }[]
   eventReport: {
     id: string
     name: string
@@ -67,7 +65,7 @@ function useReportsData() {
           supabase
             .from("volunteer_departments")
             .select("department_id, departments (name), volunteers (id, status)"),
-          supabase.from("volunteers").select("id, full_name, status"),
+          supabase.from("volunteers").select("id, full_name, volunteer_tags (tags (name))"),
           supabase
             .from("events")
             .select("id, name, date, status, event_booths (id), event_participants (id, total_hours)"),
@@ -94,10 +92,18 @@ function useReportsData() {
         deptMap.set(row.departments.name, entry)
       }
 
-      // volunteers by status
-      const statusMap = new Map<string, number>()
-      for (const volunteer of volunteersRes.data ?? []) {
-        statusMap.set(volunteer.status, (statusMap.get(volunteer.status) ?? 0) + 1)
+      // volunteers by tag — one volunteer can carry several, and one with none
+      // still has to appear somewhere or the totals stop adding up
+      const tagMap = new Map<string, number>()
+      for (const volunteer of (volunteersRes.data ?? []) as unknown as {
+        volunteer_tags: { tags: { name: string } | null }[]
+      }[]) {
+        const names = volunteer.volunteer_tags.map((vt) => vt.tags?.name).filter(Boolean) as string[]
+        if (!names.length) {
+          tagMap.set("No tag", (tagMap.get("No tag") ?? 0) + 1)
+          continue
+        }
+        for (const name of names) tagMap.set(name, (tagMap.get(name) ?? 0) + 1)
       }
 
       // events
@@ -184,8 +190,8 @@ function useReportsData() {
           department,
           ...counts,
         })),
-        volunteersByStatus: Array.from(statusMap.entries()).map(([status, count]) => ({
-          status: VOLUNTEER_STATUS_LABELS[status as VolunteerStatus] ?? status,
+        volunteersByTag: Array.from(tagMap.entries()).map(([tag, count]) => ({
+          tag,
           count,
         })),
         eventReport,
@@ -317,22 +323,22 @@ export function ReportsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">By status</CardTitle>
+                <CardTitle className="text-base">By tag</CardTitle>
               </CardHeader>
               <CardContent>
-                {data.volunteersByStatus.length ? (
+                {data.volunteersByTag.length ? (
                   <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={data.volunteersByStatus}
+                          data={data.volunteersByTag}
                           dataKey="count"
-                          nameKey="status"
+                          nameKey="tag"
                           innerRadius={55}
                           outerRadius={95}
                           paddingAngle={3}
                         >
-                          {data.volunteersByStatus.map((_, index) => (
+                          {data.volunteersByTag.map((_, index) => (
                             <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                           ))}
                         </Pie>

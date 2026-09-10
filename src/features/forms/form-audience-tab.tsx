@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/table"
 import { EmptyState } from "@/components/shared/empty-state"
 import { exportToExcel } from "@/lib/export"
-import { VOLUNTEER_STATUS_LABELS } from "@/lib/constants"
 import { MatchReviewList } from "@/features/comparison/match-review"
 import {
   comparePeople,
@@ -31,7 +30,7 @@ import {
   type RosterEntry,
 } from "@/features/comparison/use-matching"
 import { useDepartments } from "@/features/departments/use-departments"
-import type { FormFieldRow, FormResponseRow, FormRow, VolunteerStatus } from "@/types/database.types"
+import type { FormFieldRow, FormResponseRow, FormRow } from "@/types/database.types"
 
 /**
  * "110 filled it in and I have 140 volunteers — who are the other 30?"
@@ -61,17 +60,12 @@ export function FormAudienceTab({
   const dismissMatch = useDismissMatch()
 
   const [department, setDepartment] = useState(ALL)
-  const [status, setStatus] = useState(ALL)
 
   // who was *expected* to fill it in — the whole roster, or one team of it
   const audience = useMemo(
     () =>
-      roster.filter(
-        (entry) =>
-          (department === ALL || entry.department === department) &&
-          (status === ALL || entry.status === status)
-      ),
-    [roster, department, status]
+      roster.filter((entry) => department === ALL || entry.department === department),
+    [roster, department]
   )
 
   const keys = useMemo(() => identityFields(fields), [fields])
@@ -194,21 +188,6 @@ export function FormAudienceTab({
                 </SelectContent>
               </Select>
 
-              <Select value={status} onValueChange={(value) => setStatus(value ?? ALL)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>Every status</SelectItem>
-                  {Object.entries(VOLUNTEER_STATUS_LABELS)
-                    .filter(([value]) => value !== "archived")
-                    .map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -301,7 +280,6 @@ export function FormAudienceTab({
                   <TableHead>Name</TableHead>
                   <TableHead>Team</TableHead>
                   <TableHead>Phone</TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -319,11 +297,6 @@ export function FormAudienceTab({
                       {entry.department ?? "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{entry.phone ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {VOLUNTEER_STATUS_LABELS[entry.status as VolunteerStatus] ?? entry.status}
-                      </Badge>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

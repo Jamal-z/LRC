@@ -63,10 +63,8 @@ import {
   TASK_PRIORITY_BADGE,
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
-  VOLUNTEER_STATUS_BADGE,
-  VOLUNTEER_STATUS_LABELS,
 } from "@/lib/constants"
-import type { TaskPriority, TaskStatus, UserRole, VolunteerStatus } from "@/types/database.types"
+import type { TaskPriority, TaskStatus, UserRole } from "@/types/database.types"
 
 const NO_ASSIGNEE = "__unassigned__"
 
@@ -305,15 +303,6 @@ export function DepartmentDetailPage() {
                           {vd.volunteers!.full_name}
                         </p>
                         <div className="flex flex-wrap justify-center gap-1">
-                          {isAdmin && (
-                            <Badge
-                              className={
-                                VOLUNTEER_STATUS_BADGE[vd.volunteers!.status as VolunteerStatus]
-                              }
-                            >
-                              {VOLUNTEER_STATUS_LABELS[vd.volunteers!.status as VolunteerStatus]}
-                            </Badge>
-                          )}
                           <Badge variant={vd.is_primary ? "secondary" : "outline"} className="text-xs">
                             {vd.is_primary ? "Primary" : "Secondary"}
                           </Badge>

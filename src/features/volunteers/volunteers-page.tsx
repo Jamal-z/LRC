@@ -59,9 +59,7 @@ import {
   type VolunteerWithRelations,
 } from "./use-volunteers"
 import { VolunteerFormDialog } from "./volunteer-form-dialog"
-import { VOLUNTEER_STATUS_BADGE, VOLUNTEER_STATUS_LABELS } from "@/lib/constants"
 import { exportToCsv, exportToExcel, type ExportColumn } from "@/lib/export"
-import type { VolunteerStatus } from "@/types/database.types"
 
 const ALL = "__all__"
 
@@ -90,7 +88,6 @@ const EXPORT_COLUMNS: ExportColumn<VolunteerWithRelations>[] = [
   },
   { header: "WhatsApp", value: (v) => v.volunteer_private?.phone },
   { header: "Email", value: (v) => v.volunteer_private?.email },
-  { header: "Status", value: (v) => VOLUNTEER_STATUS_LABELS[v.status] },
   { header: "Skills", value: (v) => v.volunteer_private?.skills },
   { header: "Languages", value: (v) => v.volunteer_private?.languages },
   { header: "Availability", value: (v) => v.volunteer_private?.availability },
@@ -126,7 +123,6 @@ export function VolunteersPage() {
 
   const [search, setSearch] = useState("")
   const [departmentFilter, setDepartmentFilter] = useState(ALL)
-  const [statusFilter, setStatusFilter] = useState(ALL)
   const [tagFilter, setTagFilter] = useState(ALL)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<VolunteerWithRelations | null>(null)
@@ -156,11 +152,10 @@ export function VolunteersPage() {
         const inDept = v.volunteer_departments.some((vd) => vd.department_id === departmentFilter)
         if (!inDept) return false
       }
-      if (statusFilter !== ALL && v.status !== statusFilter) return false
       if (tagFilter !== ALL && !v.volunteer_tags.some((vt) => vt.tag_id === tagFilter)) return false
       return true
     })
-  }, [volunteers, search, departmentFilter, statusFilter, tagFilter])
+  }, [volunteers, search, departmentFilter, tagFilter])
 
   function openAdd() {
     setEditing(null)
@@ -250,22 +245,6 @@ export function VolunteersPage() {
             </SelectContent>
           </Select>
 
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? ALL)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All statuses</SelectItem>
-              {Object.entries(VOLUNTEER_STATUS_LABELS)
-                .filter(([value]) => value !== "archived")
-                .map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-
           <Select value={tagFilter} onValueChange={(v) => setTagFilter(v ?? ALL)}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -316,7 +295,7 @@ export function VolunteersPage() {
                   {isAdmin && <TableHead>Residence</TableHead>}
                   <TableHead>Team</TableHead>
                   {isAdmin && <TableHead>WhatsApp</TableHead>}
-                  <TableHead>Status</TableHead>
+                  <TableHead>Tags</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -367,9 +346,22 @@ export function VolunteersPage() {
                       </TableCell>
                     )}
                     <TableCell>
-                      <Badge className={VOLUNTEER_STATUS_BADGE[volunteer.status as VolunteerStatus]}>
-                        {VOLUNTEER_STATUS_LABELS[volunteer.status as VolunteerStatus]}
-                      </Badge>
+                      <div className="flex max-w-56 flex-wrap gap-1">
+                        {volunteer.volunteer_tags.length === 0 ? (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        ) : (
+                          volunteer.volunteer_tags.map((vt) => (
+                            <Badge
+                              key={vt.tag_id}
+                              variant="secondary"
+                              className="text-xs"
+                              style={{ backgroundColor: `${vt.tags.color}22`, color: vt.tags.color }}
+                            >
+                              {vt.tags.name}
+                            </Badge>
+                          ))
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>

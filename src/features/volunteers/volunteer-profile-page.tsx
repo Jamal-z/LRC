@@ -27,8 +27,6 @@ import { EmptyState } from "@/components/shared/empty-state"
 import {
   PARTICIPATION_STATUS_LABELS,
   TASK_STATUS_LABELS,
-  VOLUNTEER_STATUS_BADGE,
-  VOLUNTEER_STATUS_LABELS,
 } from "@/lib/constants"
 import type { ParticipationStatus, TaskStatus } from "@/types/database.types"
 
@@ -109,9 +107,6 @@ export function VolunteerProfilePage() {
               <h1 className="text-xl font-semibold tracking-tight text-foreground">
                 {volunteer.full_name}
               </h1>
-              <Badge className={VOLUNTEER_STATUS_BADGE[volunteer.status]}>
-                {VOLUNTEER_STATUS_LABELS[volunteer.status]}
-              </Badge>
             </div>
 
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
