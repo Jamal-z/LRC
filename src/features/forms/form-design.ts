@@ -851,7 +851,54 @@ function scopeSelector(selector: string, scope: string) {
  * ones whose bodies are not selectors (`@keyframes`, `@font-face`) are copied
  * through untouched.
  */
-export function scopeCss(css: string, scope = ".lrc-page"): string {
+/**
+ * Raises a declaration block over the renderer's own inline styles.
+ *
+ * Every input, label and button the form draws carries a `style` attribute
+ * built from the design settings, and an inline style beats any stylesheet.
+ * Without this an uploaded skin can restyle the page around the questions but
+ * never the questions themselves — which reads, fairly, as "it ignored my
+ * design". `!important` is the one thing that outranks inline, so uploaded
+ * rules get it and the promise that custom CSS always wins becomes true.
+ */
+function forceImportant(body: string) {
+  const declarations: string[] = []
+  let current = ""
+  let depth = 0
+  let quote = ""
+
+  // a plain split on ";" would cut "url(data:image/svg+xml;base64,…)" in half,
+  // so separators only count outside brackets and quotes
+  for (const char of body) {
+    if (quote) {
+      if (char === quote) quote = ""
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (char === "(") {
+      depth++
+    } else if (char === ")") {
+      depth = Math.max(0, depth - 1)
+    } else if (char === ";" && depth === 0) {
+      declarations.push(current)
+      current = ""
+      continue
+    }
+    current += char
+  }
+  declarations.push(current)
+
+  return declarations
+    .map((declaration) => {
+      const trimmed = declaration.trim()
+      if (!trimmed || !trimmed.includes(":") || /!\s*important$/i.test(trimmed)) {
+        return declaration
+      }
+      return `${declaration} !important`
+    })
+    .join(";")
+}
+
+export function scopeCss(css: string, scope = ".lrc-page", important = false): string {
   let out = ""
   let index = 0
 
@@ -874,9 +921,10 @@ export function scopeCss(css: string, scope = ".lrc-page"): string {
 
     if (head.startsWith("@")) {
       if (OPAQUE_AT_RULES.test(head)) {
+        // keyframe steps are declarations too, but !important is illegal there
         out += `${head}{${body}}`
       } else if (NESTING_AT_RULES.test(head)) {
-        out += `${head}{${scopeCss(body, scope)}}`
+        out += `${head}{${scopeCss(body, scope, important)}}`
       }
       // anything else at the top level (@charset, unknown) is dropped
     } else {
@@ -884,7 +932,9 @@ export function scopeCss(css: string, scope = ".lrc-page"): string {
         .split(",")
         .map((selector) => scopeSelector(selector, scope))
         .filter(Boolean)
-      if (selectors.length) out += `${selectors.join(",")}{${body}}`
+      if (selectors.length) {
+        out += `${selectors.join(",")}{${important ? forceImportant(body) : body}}`
+      }
     }
 
     index = cursor
@@ -1024,6 +1074,162 @@ function option0HasValue(select: Element) {
   return !!first?.getAttribute("value")
 }
 
+/* ------------------------------------------------------------------ *
+ * Making an uploaded skin fit the questions the form actually draws
+ * ------------------------------------------------------------------ */
+
+const classTokens = (element: Element | null | undefined) =>
+  (element?.getAttribute("class") ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((name) => `.${name}`)
+
+/**
+ * Works out which of the author's class names mean which part of a question.
+ *
+ * An uploaded file styles its own markup — `.field`, `label.q`, `.submit-btn`
+ * — but the form is redrawn with the renderer's own elements, so none of those
+ * rules would ever match anything and the upload looks like it was ignored.
+ * Reading the file's structure says what each class *was*: the thing wrapping
+ * a control is the question block, the label beside it is the label, and so
+ * on. Those names then get pointed at the matching `.lrc-` hook.
+ */
+export function skinAliases(doc: Document): Record<string, string> {
+  const aliases: Record<string, string> = {
+    // element selectors are the common case and need no guessing
+    input: ".lrc-input",
+    textarea: ".lrc-input",
+    select: ".lrc-input",
+  }
+
+  // A file usually holds several looks for the same thing — pill options, card
+  // options, a grid of them — but the form draws every option the one way, so
+  // two mapped looks would just fight and the last would win at random. Only
+  // the first pattern for each part of a question is taken.
+  const claimed = new Set<string>()
+  /** One pattern may be spread over several elements — a label and the span
+   *  inside it — so they are claimed together or not at all. */
+  const addAll = (elements: (Element | null | undefined)[], hook: string) => {
+    if (claimed.has(hook)) return
+    const tokens = elements.flatMap(classTokens)
+    if (!tokens.length) return
+    for (const token of tokens) aliases[token] ??= hook
+    claimed.add(hook)
+  }
+  const add = (element: Element | null | undefined, hook: string) => addAll([element], hook)
+
+  for (const control of doc.querySelectorAll("input, textarea, select")) {
+    const type = (control.getAttribute("type") ?? "text").toLowerCase()
+    if (["submit", "button", "reset", "hidden", "image", "file"].includes(type)) continue
+
+    if (type === "radio" || type === "checkbox") {
+      // the label around a radio is the clickable option, not a question label
+      const option = control.closest("label")
+      // the pill look is almost always painted on a span inside that label
+      // rather than the label itself, so that span is part of the same pattern
+      const inner = [...(option?.querySelectorAll(":scope > [class]") ?? [])].filter(
+        (element) => element !== control
+      )
+      addAll([option, ...inner], ".lrc-choice")
+      continue
+    }
+
+    add(control, ".lrc-input")
+
+    // the nearest ancestor carrying a class is the question block
+    const wrapper = control.parentElement?.closest("[class]")
+    const isBlock = wrapper && !/^(form|body|html)$/i.test(wrapper.tagName)
+    if (isBlock) add(wrapper, ".lrc-question")
+
+    const id = control.getAttribute("id")
+    add(id ? doc.querySelector(`label[for="${CSS.escape(id)}"]`) : null, ".lrc-label")
+    add(control.closest("label"), ".lrc-label")
+    // most hand-written forms do neither: the label is simply the one sitting
+    // beside the control in the same block, tied to it by nothing but layout
+    if (isBlock) {
+      const sibling = wrapper.querySelector("label:not([class~='choice'])")
+      if (sibling && !sibling.contains(control)) add(sibling, ".lrc-label")
+      add(wrapper.querySelector("small, .hint, [class*='hint'], [class*='help']"), ".lrc-hint")
+    }
+  }
+
+  const submit =
+    doc.querySelector("button[type=submit], input[type=submit]") ??
+    [...doc.querySelectorAll("button")].pop()
+  add(submit, ".lrc-submit")
+  aliases.button ??= ".lrc-submit"
+
+  return aliases
+}
+
+/**
+ * Copies each of the author's rules onto the hook its selector stands for.
+ *
+ * The original rule is kept — the uploaded markup above the questions still
+ * uses those classes — and a duplicate is emitted with the class swapped, so
+ * the same styling lands on the questions the form renders itself.
+ */
+export function aliasCss(css: string, aliases: Record<string, string>): string {
+  const tokens = Object.keys(aliases)
+  if (!tokens.length) return ""
+
+  const extra: string[] = []
+  let index = 0
+
+  while (index < css.length) {
+    const braceAt = css.indexOf("{", index)
+    if (braceAt === -1) break
+    const head = css.slice(index, braceAt).trim()
+
+    let depth = 1
+    let cursor = braceAt + 1
+    while (cursor < css.length && depth > 0) {
+      if (css[cursor] === "{") depth++
+      else if (css[cursor] === "}") depth--
+      cursor++
+    }
+    const body = css.slice(braceAt + 1, cursor - 1)
+    index = cursor
+
+    if (head.startsWith("@")) {
+      if (NESTING_AT_RULES.test(head)) {
+        const inner = aliasCss(body, aliases)
+        if (inner) extra.push(`${head}{${inner}}`)
+      }
+      continue
+    }
+
+    const rewritten = head
+      .split(",")
+      .map((selector) => {
+        let next = selector
+        let hit = false
+        for (const token of tokens) {
+          // ".field" and "input" both have to match as whole tokens, so
+          // ".fieldset" and "input-group" are left alone
+          const pattern = token.startsWith(".")
+            ? new RegExp(`\\${token}(?![\\w-])`, "g")
+            : new RegExp(`(^|[\\s>+~])${token}(?![\\w-])`, "g")
+          if (!pattern.test(next)) continue
+          hit = true
+          next = next.replace(
+            pattern,
+            token.startsWith(".") ? aliases[token] : `$1${aliases[token]}`
+          )
+        }
+        if (!hit) return ""
+        // ".choice .pill" describes one option painted on two nested elements;
+        // the form draws it as one, so the repeated hook collapses into itself
+        return next.replace(/(\.lrc-[\w-]+)(?:\s+\1)+/g, "$1").trim()
+      })
+      .filter(Boolean)
+
+    if (rewritten.length) extra.push(`${rewritten.join(",")}{${body}}`)
+  }
+
+  return extra.join("\n")
+}
+
 /**
  * Splits an uploaded file into the three things the form can use: its styles,
  * its decorative markup, and its questions.
@@ -1045,6 +1251,15 @@ export function splitUploadedHtml(raw: string): {
   })
 
   const fields = extractFieldsFromHtml(rest)
+  const authorCss = sanitizeCss(css.join("\n\n"))
+
+  // point the file's own class names at the parts of the form they described,
+  // so the questions come out looking the way they did in the file
+  let mapped = ""
+  if (typeof DOMParser !== "undefined") {
+    const doc = new DOMParser().parseFromString(rest, "text/html")
+    mapped = aliasCss(authorCss, skinAliases(doc))
+  }
 
   const bodyMatch = rest.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
   if (bodyMatch) rest = bodyMatch[1]
@@ -1056,7 +1271,9 @@ export function splitUploadedHtml(raw: string): {
     .replace(/<\/?body[^>]*>/gi, "")
 
   return {
-    css: sanitizeCss(css.join("\n\n")),
+    css: mapped
+      ? `${authorCss}\n\n/* --- your styling, applied to the form's own questions --- */\n${mapped}`
+      : authorCss,
     html: sanitizeHtml(stripFormMarkup(rest)).trim(),
     fields,
   }
@@ -1093,6 +1310,8 @@ export const SKIN_HOOKS = [
   { name: ".lrc-desc", what: "the description under it" },
   { name: ".lrc-question", what: "one question block" },
   { name: ".lrc-label", what: "a question label" },
+  { name: ".lrc-hint", what: "the help text under a label" },
+  { name: ".lrc-choice", what: "one radio or checkbox option" },
   { name: ".lrc-input", what: "every input" },
   { name: ".lrc-submit", what: "the submit button" },
   { name: ".lrc-header", what: "your uploaded markup" },

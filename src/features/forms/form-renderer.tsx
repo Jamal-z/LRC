@@ -111,7 +111,7 @@ export function FormRenderer({
 
   // pinned to .lrc-page: the builder renders this preview in its own document,
   // so an unscoped skin would take the admin screen down with the form
-  const scopedCss = form.custom_css ? scopeCss(sanitizeCss(form.custom_css)) : ""
+  const scopedCss = form.custom_css ? scopeCss(sanitizeCss(form.custom_css), ".lrc-page", true) : ""
   const surface = inputSurface(d)
 
   function renderControl(field: FormFieldRow) {
@@ -539,6 +539,7 @@ export function FormRenderer({
                         </label>
                         {field.help_text && (
                           <p
+                            className="lrc-hint"
                             style={{
                               margin: "0.3rem 0 0",
                               fontSize: "0.82rem",
