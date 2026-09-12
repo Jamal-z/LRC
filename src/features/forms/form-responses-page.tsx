@@ -8,6 +8,8 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Lock,
+  LockOpen,
   Pencil,
   TriangleAlert,
   UserRound,
@@ -47,6 +49,7 @@ import {
   useFormFields,
   useFormResponses,
   useReviewResponse,
+  useSetFormActive,
 } from "./use-forms"
 import type { FormFieldRow, FormResponseRow } from "@/types/database.types"
 
@@ -115,6 +118,7 @@ export function FormResponsesPage() {
   const { data: form, isLoading: formLoading } = useForm(id)
   const { data: fields = [] } = useFormFields(id)
   const { data: responses = [], isLoading } = useFormResponses(id)
+  const setFormActive = useSetFormActive()
   const reviewResponse = useReviewResponse()
 
   const [viewing, setViewing] = useState<FormResponseRow | null>(null)
@@ -266,6 +270,32 @@ export function FormResponsesPage() {
             <Button variant="outline" render={<Link to={`/forms/${form.id}/edit`} />}>
               <Pencil className="size-4" />
               Edit form
+            </Button>
+            {/* the one thing you want when a round ends, next to the badge that
+                says whether it has ended — and it touches nothing but is_active */}
+            <Button
+              variant="outline"
+              disabled={setFormActive.isPending}
+              onClick={() =>
+                setFormActive.mutate(
+                  { id: form.id, isActive: !form.is_active },
+                  {
+                    onSuccess: () =>
+                      toast.success(
+                        form.is_active
+                          ? "Form closed — visitors now see a closed notice, and every response you have stays"
+                          : "Form reopened — it's accepting responses again"
+                      ),
+                    onError: (error) =>
+                      toast.error(
+                        error instanceof Error ? error.message : "Couldn't change that"
+                      ),
+                  }
+                )
+              }
+            >
+              {form.is_active ? <Lock className="size-4" /> : <LockOpen className="size-4" />}
+              {form.is_active ? "Close form" : "Reopen form"}
             </Button>
             <Button
               variant="outline"

@@ -258,25 +258,33 @@ export function useSaveForm() {
         formId = data.id
       }
 
-      // fields are small and fully owned by the form — replace them wholesale
-      const { error: delError } = await supabase.from("form_fields").delete().eq("form_id", formId!)
-      if (delError) throw delError
+      // Every response stores its answers keyed by question id, so a question
+      // has to keep its id across saves. Replacing the rows wholesale (as this
+      // used to) handed every question a fresh id and left all the answers
+      // already collected pointing at nothing — the table showed "—" everywhere.
+      const rows = fields.map((field, index) => ({
+        id: field.id ?? crypto.randomUUID(),
+        form_id: formId!,
+        label: field.label,
+        help_text: field.help_text ?? null,
+        field_type: field.field_type ?? "text",
+        options: field.options ?? [],
+        is_required: field.is_required ?? false,
+        maps_to: field.maps_to ?? null,
+        position: index,
+      }))
 
-      if (fields.length) {
-        const { error: insError } = await supabase.from("form_fields").insert(
-          fields.map((field, index) => ({
-            form_id: formId!,
-            label: field.label,
-            help_text: field.help_text ?? null,
-            field_type: field.field_type ?? "text",
-            options: field.options ?? [],
-            is_required: field.is_required ?? false,
-            maps_to: field.maps_to ?? null,
-            position: index,
-          }))
-        )
-        if (insError) throw insError
+      if (rows.length) {
+        const { error: upsertError } = await supabase.from("form_fields").upsert(rows)
+        if (upsertError) throw upsertError
       }
+
+      // only now drop the questions that were removed, so a failed save never
+      // leaves the form with no questions at all
+      let removed = supabase.from("form_fields").delete().eq("form_id", formId!)
+      if (rows.length) removed = removed.not("id", "in", `(${rows.map((r) => r.id).join(",")})`)
+      const { error: delError } = await removed
+      if (delError) throw delError
 
       return formId!
     },
@@ -284,6 +292,29 @@ export function useSaveForm() {
       queryClient.invalidateQueries({ queryKey: ["forms"] })
       queryClient.invalidateQueries({ queryKey: ["form", formId] })
       queryClient.invalidateQueries({ queryKey: ["form-fields", formId] })
+    },
+  })
+}
+
+/**
+ * Opens or closes a form, on its own.
+ *
+ * Closing is what somebody reaches for when a round is over, and it has no
+ * business rewriting the questions on the way there — so this writes the one
+ * column and takes effect the moment it is pressed, with the responses already
+ * collected left exactly where they are.
+ */
+export function useSetFormActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { error } = await supabase.from("forms").update({ is_active: isActive }).eq("id", id)
+      if (error) throw error
+      return isActive
+    },
+    onSuccess: (_isActive, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["forms"] })
+      queryClient.invalidateQueries({ queryKey: ["form", id] })
     },
   })
 }

@@ -71,12 +71,15 @@ export function PublicFormPage() {
           <div className="flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
             <FileWarning className="size-7" />
           </div>
+          {/* the form's own name, so somebody who filled it in knows which
+              round this is talking about and not that they mistyped the link */}
+          {form && <p className="text-sm font-medium text-muted-foreground">{form.title}</p>}
           <h1 className="text-xl font-semibold text-foreground">
             {form ? "هذا النموذج مغلق حالياً" : "النموذج غير موجود"}
           </h1>
           <p className="text-sm text-muted-foreground">
             {form
-              ? "This form is closed and is no longer accepting responses."
+              ? "انتهى استقبال الردود على هذا النموذج. شكراً لاهتمامك. / This form is closed and is no longer accepting responses."
               : "This form link is not valid."}
           </p>
         </div>

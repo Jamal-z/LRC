@@ -46,6 +46,7 @@ import {
   useForm,
   useFormFields,
   useSaveForm,
+  useSetFormActive,
 } from "./use-forms"
 import {
   DEFAULT_DESIGN,
@@ -109,6 +110,7 @@ export function FormBuilderPage() {
   const { data: departments = [] } = useDepartments()
   const { data: events = [] } = useEvents()
   const saveForm = useSaveForm()
+  const setFormActive = useSetFormActive()
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -244,6 +246,34 @@ export function FormBuilderPage() {
     )
   }
 
+  /**
+   * Opens or closes the form straight away.
+   *
+   * Waiting for Save meant the one switch people reach for to stop a round
+   * went through the whole form — questions included — which is a lot of
+   * machinery to move for one boolean. On a form that doesn't exist yet there
+   * is nothing to write to, so it just rides along with the first save.
+   */
+  function toggleAccepting(checked: boolean) {
+    setIsActive(checked)
+    if (!id) return
+    setFormActive.mutate(
+      { id, isActive: checked },
+      {
+        onSuccess: () =>
+          toast.success(
+            checked
+              ? "Form reopened — it's accepting responses again"
+              : "Form closed — visitors now see a closed notice, and your responses stay"
+          ),
+        onError: (error) => {
+          setIsActive(!checked)
+          toast.error(error instanceof Error ? error.message : "Couldn't change that")
+        },
+      }
+    )
+  }
+
   function updateField(key: string, patch: Partial<DraftField>) {
     setFields((prev) => prev.map((f) => (f.key === key ? { ...f, ...patch } : f)))
   }
@@ -351,6 +381,8 @@ export function FormBuilderPage() {
           success_message: successMessage || null,
         },
         fields: validFields.map((f) => ({
+          // an existing question's key is its row id; a new one's is a fresh uuid
+          id: f.key,
           label: f.label.trim(),
           help_text: f.help_text || null,
           field_type: f.field_type,
@@ -733,9 +765,13 @@ export function FormBuilderPage() {
                   <label className="flex items-center justify-between rounded-lg border border-border p-3 text-sm">
                     <div>
                       <p className="font-medium text-foreground">Accepting responses</p>
-                      <FieldDescription>Turn off to close the form.</FieldDescription>
+                      <FieldDescription>
+                        {id
+                          ? "Applies the moment you switch it — no need to save. A closed form tells visitors the round is over; every response you already have stays."
+                          : "Turn off to close the form."}
+                      </FieldDescription>
                     </div>
-                    <Switch checked={isActive} onCheckedChange={setIsActive} />
+                    <Switch checked={isActive} onCheckedChange={toggleAccepting} />
                   </label>
 
                   <Field>
