@@ -18,6 +18,8 @@ import { EventsPage } from "@/features/events/events-page"
 import { EventDetailPage } from "@/features/events/event-detail-page"
 import { BoothDetailPage } from "@/features/events/booth-detail-page"
 import { TasksPage } from "@/features/tasks/tasks-page"
+import { MeetingsPage } from "@/features/meetings/meetings-page"
+import { MeetingDetailPage } from "@/features/meetings/meeting-detail-page"
 import { EvaluationsPage } from "@/features/evaluations/evaluations-page"
 import { EvaluationGroupsPage } from "@/features/evaluations/evaluation-groups-page"
 import { EvaluateGroupPage } from "@/features/evaluations/evaluate-group-page"
@@ -67,6 +69,8 @@ function App() {
                 <Route path="events/:id" element={<EventDetailPage />} />
                 <Route path="events/:id/booths/:boothId" element={<BoothDetailPage />} />
                 <Route path="tasks" element={<TasksPage />} />
+                <Route path="meetings" element={<MeetingsPage />} />
+                <Route path="meetings/:id" element={<MeetingDetailPage />} />
                 <Route path="evaluations" element={<EvaluationsPage />} />
                 <Route path="evaluations/:eventId" element={<EvaluationGroupsPage />} />
                 <Route

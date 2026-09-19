@@ -15,6 +15,7 @@ import {
   GitCompareArrows,
   Bell,
   MessageSquareText,
+  Users2,
 } from "lucide-react"
 import type { UserRole } from "@/types/database.types"
 
@@ -34,7 +35,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Volunteers", path: "/volunteers", icon: Users, roles: MANAGERS },
   { label: "Departments", path: "/departments", icon: Building2, roles: MANAGERS },
   { label: "Events", path: "/events", icon: CalendarDays, roles: ALL_STAFF },
-  { label: "Tasks", path: "/tasks", icon: KanbanSquare, roles: MANAGERS },
+  { label: "Meetings", path: "/meetings", icon: Users2, roles: ALL_STAFF },
+  { label: "Tasks", path: "/tasks", icon: KanbanSquare, roles: ALL_STAFF },
   { label: "Evaluations", path: "/evaluations", icon: ClipboardCheck, roles: ALL_STAFF },
   { label: "Notifications", path: "/notifications", icon: Bell, roles: ALL_STAFF },
   { label: "Interviews", path: "/interviews", icon: MessageSquareText, roles: ADMINS_ONLY },

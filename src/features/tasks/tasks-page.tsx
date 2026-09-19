@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import {
   DndContext,
   DragOverlay,
@@ -10,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
-import { CalendarDays, KanbanSquare, MessageSquare, Plus, Trash2 } from "lucide-react"
+import { CalendarDays, KanbanSquare, MessageSquare, Plus, Trash2, Users2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -120,6 +121,12 @@ function TaskCard({
             {task.departments.name}
           </Badge>
         )}
+        {task.meeting && (
+          <Badge variant="outline" className="gap-1 text-[0.65rem]" title={task.meeting.title}>
+            <Users2 className="size-3" />
+            Meeting
+          </Badge>
+        )}
         {task.due_date && (
           <span
             className={cn(
@@ -202,6 +209,8 @@ function BoardColumn({
 
 export function TasksPage() {
   const { profile } = useAuth()
+  // booth leaders add tasks through their meeting minutes, not from scratch
+  const canCreate = profile?.role !== "booth_leader"
   const { data: tasks = [], isLoading } = useTasks()
   const { data: departments = [] } = useDepartments()
   const { data: users = [] } = useAdminUsers()
@@ -334,13 +343,17 @@ export function TasksPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Tasks</h1>
           <p className="text-sm text-muted-foreground">
-            Drag cards between columns to update their status.
+            {canCreate
+              ? "Drag cards between columns to update their status."
+              : "Action items from your booth meetings. Drag cards between columns to update their status."}
           </p>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="size-4" />
-          Create Task
-        </Button>
+        {canCreate && (
+          <Button onClick={openAdd}>
+            <Plus className="size-4" />
+            Create Task
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -354,7 +367,11 @@ export function TasksPage() {
           <CardContent>
             <EmptyState
               title="No tasks yet"
-              description="Create your first task to start organizing the team's work."
+              description={
+                canCreate
+                  ? "Create your first task to start organizing the team's work."
+                  : "Tasks you add while recording meeting minutes show up here."
+              }
               icon={KanbanSquare}
             />
           </CardContent>
@@ -386,6 +403,15 @@ export function TasksPage() {
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
+            {editing?.meeting && (
+              <Link
+                to={`/meetings/${editing.meeting.id}`}
+                className="inline-flex items-center gap-1.5 self-start rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <Users2 className="size-3.5" />
+                From meeting: {editing.meeting.title}
+              </Link>
+            )}
             <Field>
               <FieldLabel htmlFor="t-title">Title *</FieldLabel>
               <Input id="t-title" value={title} onChange={(e) => setTitle(e.target.value)} />

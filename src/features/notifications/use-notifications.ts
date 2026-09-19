@@ -73,6 +73,8 @@ export function notificationLink(notification: NotificationRow): string | null {
       return `/departments/${notification.related_entity_id}`
     case "task":
       return "/tasks"
+    case "meeting":
+      return `/meetings/${notification.related_entity_id}`
     case "event_evaluation":
     case "monthly_evaluation":
       return "/evaluations"

@@ -7,6 +7,7 @@ export interface TaskWithDetails extends TaskRow {
   assignee: { id: string; full_name: string } | null
   volunteer_assignee: { id: string; full_name: string } | null
   events: { id: string; name: string } | null
+  meeting: { id: string; title: string } | null
 }
 
 export function useTasks() {
@@ -25,7 +26,7 @@ export function useTasks() {
       const { data, error } = await supabase
         .from("tasks")
         .select(
-          "*, departments (id, name), assignee:assigned_to_user_id (id, full_name), volunteer_assignee:assigned_to_volunteer_id (id, full_name), events:related_event_id (id, name)"
+          "*, departments (id, name), assignee:assigned_to_user_id (id, full_name), volunteer_assignee:assigned_to_volunteer_id (id, full_name), events:related_event_id (id, name), meeting:related_meeting_id (id, title)"
         )
         .order("board_position")
         .order("created_at", { ascending: false })

@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, ClipboardCheck, MapPin, Store, Trash2, UserPlus, Users } from "lucide-react"
+import {
+  ArrowLeft,
+  CalendarPlus,
+  ClipboardCheck,
+  MapPin,
+  Store,
+  Trash2,
+  UserPlus,
+  Users,
+  Users2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -25,6 +35,9 @@ import { useVolunteers } from "@/features/volunteers/use-volunteers"
 import { useEventDetail, useRemoveParticipant, useSaveParticipant } from "./use-events"
 import { PhotoGallery } from "./photo-gallery"
 import { BoothProposalsTab } from "./booth-proposals-tab"
+import { useMeetings } from "@/features/meetings/use-meetings"
+import { MeetingList } from "@/features/meetings/meeting-list"
+import { MeetingFormDialog } from "@/features/meetings/meeting-form-dialog"
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -32,6 +45,7 @@ function initials(name: string) {
 
 export function BoothDetailPage() {
   const { id: eventId, boothId } = useParams()
+  const navigate = useNavigate()
   const { profile } = useAuth()
   const { data, isLoading } = useEventDetail(eventId)
   const { data: allVolunteers = [] } = useVolunteers()
@@ -41,6 +55,8 @@ export function BoothDetailPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [meetingOpen, setMeetingOpen] = useState(false)
+  const { data: meetings = [] } = useMeetings(boothId)
 
   // is this user a leader of THIS booth? (drives what they may change)
   const { data: leadsThisBooth = false } = useQuery({
@@ -168,10 +184,16 @@ export function BoothDetailPage() {
           </div>
 
           {canManage && (
-            <Button onClick={() => setAddOpen(true)}>
-              <UserPlus className="size-4" />
-              Add volunteers
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setMeetingOpen(true)}>
+                <CalendarPlus className="size-4" />
+                Schedule meeting
+              </Button>
+              <Button onClick={() => setAddOpen(true)}>
+                <UserPlus className="size-4" />
+                Add volunteers
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -179,6 +201,7 @@ export function BoothDetailPage() {
       <Tabs defaultValue="volunteers">
         <TabsList>
           <TabsTrigger value="volunteers">Volunteers ({boothParticipants.length})</TabsTrigger>
+          <TabsTrigger value="meetings">Meetings ({meetings.length})</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
           <TabsTrigger value="proposals">Proposals</TabsTrigger>
           <TabsTrigger value="photos">Photos</TabsTrigger>
@@ -246,6 +269,33 @@ export function BoothDetailPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="meetings">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Team meetings</CardTitle>
+              {canManage && meetings.length > 0 && (
+                <Button size="sm" variant="outline" onClick={() => setMeetingOpen(true)}>
+                  <CalendarPlus className="size-4" />
+                  Schedule
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {meetings.length === 0 ? (
+                <EmptyState
+                  title="No meetings yet"
+                  description={
+                    canManage ? "Use “Schedule meeting” to plan one with your team." : undefined
+                  }
+                  icon={Users2}
+                />
+              ) : (
+                <MeetingList meetings={meetings} showBooth={false} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="evaluations">
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
@@ -290,6 +340,13 @@ export function BoothDetailPage() {
           />
         </TabsContent>
       </Tabs>
+
+      <MeetingFormDialog
+        open={meetingOpen}
+        onOpenChange={setMeetingOpen}
+        booth={{ id: booth.id, name: booth.name, event_id: booth.event_id }}
+        onSaved={(id) => navigate(`/meetings/${id}`)}
+      />
 
       {/* add volunteers */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

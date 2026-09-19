@@ -320,6 +320,7 @@ export type TaskRow = {
   related_event_id: string | null
   related_booth_id: string | null
   related_volunteer_id: string | null
+  related_meeting_id: string | null
   created_at: string
   updated_at: string
 }
@@ -679,6 +680,44 @@ export type AppSettingRow = {
 export type AppSettingInsert = Omit<AppSettingRow, "updated_at"> & Partial<Pick<AppSettingRow, "updated_at">>
 export type AppSettingUpdate = Partial<AppSettingInsert>
 
+export type MeetingMode = "in_person" | "online"
+export type MeetingStatus = "scheduled" | "completed" | "cancelled"
+
+export type BoothMeetingRow = {
+  id: string
+  booth_id: string
+  event_id: string
+  title: string
+  agenda: string | null
+  scheduled_at: string
+  planned_duration_minutes: number | null
+  mode: MeetingMode
+  location: string | null
+  status: MeetingStatus
+  actual_duration_minutes: number | null
+  summary: string | null
+  ideas_notes: string | null
+  completed_at: string | null
+  completed_by: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+export type BoothMeetingInsert = Partial<BoothMeetingRow> &
+  Pick<BoothMeetingRow, "booth_id" | "event_id" | "title" | "scheduled_at">
+export type BoothMeetingUpdate = Partial<BoothMeetingRow>
+
+export type BoothMeetingAttendanceRow = {
+  id: string
+  meeting_id: string
+  volunteer_id: string
+  attended: boolean
+  created_at: string
+}
+export type BoothMeetingAttendanceInsert = Omit<BoothMeetingAttendanceRow, "id" | "created_at"> &
+  Partial<Pick<BoothMeetingAttendanceRow, "id" | "created_at">>
+export type BoothMeetingAttendanceUpdate = Partial<BoothMeetingAttendanceInsert>
+
 type TableDef<Row, Insert, Update> = { Row: Row; Insert: Insert; Update: Update; Relationships: [] }
 
 export type Database = {
@@ -718,6 +757,12 @@ export type Database = {
       form_responses: TableDef<FormResponseRow, FormResponseInsert, FormResponseUpdate>
       booth_proposals: TableDef<BoothProposalRow, BoothProposalInsert, BoothProposalUpdate>
       interviews: TableDef<InterviewRow, InterviewInsert, InterviewUpdate>
+      booth_meetings: TableDef<BoothMeetingRow, BoothMeetingInsert, BoothMeetingUpdate>
+      booth_meeting_attendance: TableDef<
+        BoothMeetingAttendanceRow,
+        BoothMeetingAttendanceInsert,
+        BoothMeetingAttendanceUpdate
+      >
     }
     Views: Record<string, never>
     Functions: Record<string, never>
