@@ -682,6 +682,8 @@ export type AppSettingUpdate = Partial<AppSettingInsert>
 
 export type MeetingMode = "in_person" | "online"
 export type MeetingStatus = "scheduled" | "completed" | "cancelled"
+/** Where an in-person meeting happens — see migration 024. */
+export type MeetingRoom = "center_hall" | "booking_requested" | "booked"
 
 export type BoothMeetingRow = {
   id: string
@@ -693,6 +695,7 @@ export type BoothMeetingRow = {
   planned_duration_minutes: number | null
   mode: MeetingMode
   location: string | null
+  room: MeetingRoom | null
   status: MeetingStatus
   actual_duration_minutes: number | null
   summary: string | null
@@ -717,6 +720,22 @@ export type BoothMeetingAttendanceRow = {
 export type BoothMeetingAttendanceInsert = Omit<BoothMeetingAttendanceRow, "id" | "created_at"> &
   Partial<Pick<BoothMeetingAttendanceRow, "id" | "created_at">>
 export type BoothMeetingAttendanceUpdate = Partial<BoothMeetingAttendanceInsert>
+
+/** A busy slot from meeting_calendar() — visible across all booths. */
+export type MeetingCalendarEntry = {
+  id: string
+  booth_id: string
+  booth_name: string | null
+  event_name: string | null
+  title: string
+  scheduled_at: string
+  duration_minutes: number
+  mode: MeetingMode
+  room: MeetingRoom | null
+  location: string | null
+  status: MeetingStatus
+  can_open: boolean
+}
 
 type TableDef<Row, Insert, Update> = { Row: Row; Insert: Insert; Update: Update; Relationships: [] }
 
@@ -765,7 +784,12 @@ export type Database = {
       >
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      meeting_calendar: {
+        Args: { p_from: string; p_to: string }
+        Returns: MeetingCalendarEntry[]
+      }
+    }
     Enums: {
       user_role: UserRole
       volunteer_status: VolunteerStatus

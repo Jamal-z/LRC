@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import type {
   BoothMeetingRow,
+  MeetingCalendarEntry,
   MeetingMode,
+  MeetingRoom,
   TaskPriority,
   TaskStatus,
 } from "@/types/database.types"
@@ -38,6 +40,43 @@ export interface MeetingDetail extends BoothMeetingRow {
 /** A scheduled meeting whose time has passed but has no minutes yet. */
 export function needsMinutes(meeting: Pick<BoothMeetingRow, "status" | "scheduled_at">) {
   return meeting.status === "scheduled" && new Date(meeting.scheduled_at) < new Date()
+}
+
+/** When a meeting ends; meetings without a planned length count as an hour. */
+export function meetingEnd(start: Date, durationMinutes: number | null | undefined) {
+  return new Date(start.getTime() + (durationMinutes || 60) * 60_000)
+}
+
+/**
+ * Busy slots across every booth between two instants, so leaders can see
+ * which days and hours are taken — including booths they can't open.
+ */
+export function useMeetingCalendar(from: Date, to: Date) {
+  return useQuery({
+    queryKey: ["meetings", "calendar", from.toISOString(), to.toISOString()],
+    queryFn: async (): Promise<MeetingCalendarEntry[]> => {
+      const { data, error } = await supabase.rpc("meeting_calendar", {
+        p_from: from.toISOString(),
+        p_to: to.toISOString(),
+      })
+      if (error) throw error
+      return (data ?? []) as MeetingCalendarEntry[]
+    },
+  })
+}
+
+/** The center-hall meeting that overlaps [start, end), if any — ignoring `exceptId`. */
+export function findHallClash(
+  entries: MeetingCalendarEntry[],
+  start: Date,
+  end: Date,
+  exceptId?: string
+) {
+  return entries.find((e) => {
+    if (e.id === exceptId || e.room !== "center_hall") return false
+    const eStart = new Date(e.scheduled_at)
+    return eStart < end && meetingEnd(eStart, e.duration_minutes) > start
+  })
 }
 
 const LIST_SELECT =
@@ -170,6 +209,7 @@ export interface SaveMeetingInput {
   planned_duration_minutes: number | null
   mode: MeetingMode
   location: string | null
+  room: MeetingRoom | null
   created_by?: string | null
 }
 
@@ -282,6 +322,21 @@ export function useSetMeetingStatus() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "scheduled" | "cancelled" }) => {
       const { error } = await supabase.from("booth_meetings").update({ status }).eq("id", id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateMeetings(queryClient),
+  })
+}
+
+/** Admins: record the room they booked for a meeting whose team asked for one. */
+export function useMarkRoomBooked() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, location }: { id: string; location: string }) => {
+      const { error } = await supabase
+        .from("booth_meetings")
+        .update({ room: "booked", location })
+        .eq("id", id)
       if (error) throw error
     },
     onSuccess: () => invalidateMeetings(queryClient),

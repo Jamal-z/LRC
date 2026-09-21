@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CheckCheck,
   ClipboardCheck,
+  DoorOpen,
   FileText,
   MessageSquareText,
   Package,
@@ -52,6 +53,16 @@ const TYPE_META: Record<string, { icon: typeof Bell; tint: string; label: string
     icon: Users2,
     tint: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
     label: "Minutes",
+  },
+  meeting_room_request: {
+    icon: DoorOpen,
+    tint: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    label: "Room",
+  },
+  meeting_room_booked: {
+    icon: DoorOpen,
+    tint: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    label: "Room",
   },
   booth_proposal: {
     icon: Package,

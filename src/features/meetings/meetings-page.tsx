@@ -17,6 +17,7 @@ import { useAuth } from "@/features/auth/auth-context"
 import { needsMinutes, useManageableBooths, useMeetings } from "./use-meetings"
 import { MeetingList } from "./meeting-list"
 import { MeetingFormDialog } from "./meeting-form-dialog"
+import { WeekCalendar } from "./week-calendar"
 
 type View = "upcoming" | "minutes" | "completed" | "cancelled"
 
@@ -39,6 +40,7 @@ export function MeetingsPage() {
   const [view, setView] = useState<View>("upcoming")
   const [boothFilter, setBoothFilter] = useState(ALL)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [pickedStart, setPickedStart] = useState<Date | null>(null)
 
   const booths = useMemo(() => {
     const map = new Map<string, string>()
@@ -82,12 +84,28 @@ export function MeetingsPage() {
           </p>
         </div>
         {canSchedule && (
-          <Button onClick={() => setScheduleOpen(true)}>
+          <Button
+            onClick={() => {
+              setPickedStart(null)
+              setScheduleOpen(true)
+            }}
+          >
             <CalendarPlus className="size-4" />
             Schedule meeting
           </Button>
         )}
       </div>
+
+      <WeekCalendar
+        onPickSlot={
+          canSchedule
+            ? (start) => {
+                setPickedStart(start)
+                setScheduleOpen(true)
+              }
+            : undefined
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={view} onValueChange={(v) => setView(v as View)}>
@@ -135,6 +153,7 @@ export function MeetingsPage() {
       <MeetingFormDialog
         open={scheduleOpen}
         onOpenChange={setScheduleOpen}
+        initialStart={pickedStart}
         onSaved={(id) => navigate(`/meetings/${id}`)}
       />
     </div>

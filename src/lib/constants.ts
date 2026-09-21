@@ -1,6 +1,7 @@
 import type {
   EventStatus,
   MeetingMode,
+  MeetingRoom,
   MeetingStatus,
   ParticipationStatus,
   TaskPriority,
@@ -90,6 +91,15 @@ export const TASK_PRIORITY_BADGE: Record<TaskPriority, string> = {
 export const MEETING_MODE_LABELS: Record<MeetingMode, string> = {
   in_person: "In person",
   online: "Online",
+}
+
+/** The centre's own meeting room — the one room that needs no booking. */
+export const CENTER_HALL_NAME = "Center hall"
+
+export const MEETING_ROOM_LABELS: Record<MeetingRoom, string> = {
+  center_hall: CENTER_HALL_NAME,
+  booking_requested: "Room requested",
+  booked: "Room booked",
 }
 
 export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {

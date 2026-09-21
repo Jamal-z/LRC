@@ -9,6 +9,8 @@ import {
   CheckSquare,
   Clock,
   ClipboardPen,
+  DoorOpen,
+  Hourglass,
   Lightbulb,
   MapPin,
   Pencil,
@@ -64,6 +66,7 @@ import {
   useBoothTeam,
   useDeleteMeeting,
   useLeadsBooth,
+  useMarkRoomBooked,
   useMeeting,
   useRecordMinutes,
   useSetMeetingStatus,
@@ -209,6 +212,7 @@ export function MeetingDetailPage() {
                     <MapPin className="size-3.5" />
                   )}
                   {MEETING_MODE_LABELS[meeting.mode]}
+                  {meeting.room === "booking_requested" && " · Room requested"}
                   {meeting.location &&
                     (locationIsLink ? (
                       <a
@@ -282,6 +286,10 @@ export function MeetingDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {meeting.room === "booking_requested" && meeting.status === "scheduled" && (
+        <RoomRequestCard meetingId={meeting.id} isAdmin={isAdmin} />
+      )}
 
       {meeting.agenda && (
         <Card>
@@ -781,5 +789,59 @@ function MinutesForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () =
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/** The center hall was taken, so the team asked the committee for another room. */
+function RoomRequestCard({ meetingId, isAdmin }: { meetingId: string; isAdmin: boolean }) {
+  const markBooked = useMarkRoomBooked()
+  const [room, setRoom] = useState("")
+
+  async function handleBooked() {
+    if (room.trim().length < 2) {
+      toast.error("Write which room you booked")
+      return
+    }
+    try {
+      await markBooked.mutateAsync({ id: meetingId, location: room.trim() })
+      toast.success("Room booked — the team has been notified")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save the room")
+    }
+  }
+
+  return (
+    <Card className="border-amber-300 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            <Hourglass className="size-4" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">Room booking requested</p>
+            <p className="text-sm text-muted-foreground">
+              {isAdmin
+                ? "The center hall is taken at this time — book another room and write it here."
+                : "The center hall is taken at this time. The committee has been asked to book another room."}
+            </p>
+          </div>
+        </div>
+        {isAdmin && (
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Input
+              className="sm:w-56"
+              placeholder="e.g. Library room 2"
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleBooked()}
+            />
+            <Button onClick={handleBooked} disabled={markBooked.isPending}>
+              <DoorOpen className="size-4" />
+              Mark booked
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

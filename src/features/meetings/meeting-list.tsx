@@ -56,6 +56,11 @@ export function MeetingList({
                       {MEETING_STATUS_LABELS[meeting.status]}
                     </Badge>
                   )}
+                  {meeting.room === "booking_requested" && meeting.status === "scheduled" && (
+                    <Badge className="bg-amber-100 text-[0.65rem] text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                      Room requested
+                    </Badge>
+                  )}
                 </div>
                 {showBooth && (
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
