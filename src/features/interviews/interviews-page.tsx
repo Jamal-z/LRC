@@ -102,6 +102,7 @@ export function InterviewsPage() {
 
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState<InterviewWithRelations | null>(null)
+  const [tab, setTab] = useState<string>("applicants")
 
   const byStatus = useMemo(() => {
     const groups: Record<InterviewStatus, InterviewWithRelations[]> = {
@@ -112,6 +113,11 @@ export function InterviewsPage() {
     for (const interview of interviews ?? []) groups[interview.status].push(interview)
     return groups
   }, [interviews])
+
+  // export follows the open tab: a decision tab exports just that list, Applicants exports all
+  const activeStatus = STATUS_ORDER.find((s) => s === tab)
+  const exportRows = activeStatus ? byStatus[activeStatus] : (interviews ?? [])
+  const exportName = activeStatus ? `interviews-${activeStatus}` : "interviews"
 
   async function handleStatus(interview: InterviewWithRelations, status: InterviewStatus) {
     try {
@@ -155,19 +161,19 @@ export function InterviewsPage() {
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="outline" disabled={!interviews?.length} />}
+              render={<Button variant="outline" disabled={!exportRows.length} />}
             >
               <Download className="size-4" />
-              Export
+              {activeStatus ? `Export ${INTERVIEW_STATUS_LABELS[activeStatus]}` : "Export"}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => exportToExcel(interviews ?? [], EXPORT_COLUMNS, "interviews")}
+                onClick={() => exportToExcel(exportRows, EXPORT_COLUMNS, exportName)}
               >
                 Excel (.xlsx)
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => exportToCsv(interviews ?? [], EXPORT_COLUMNS, "interviews")}
+                onClick={() => exportToCsv(exportRows, EXPORT_COLUMNS, exportName)}
               >
                 CSV (.csv)
               </DropdownMenuItem>
@@ -189,7 +195,7 @@ export function InterviewsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue="applicants">
+        <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
           <TabsList className="flex-wrap">
             <TabsTrigger value="applicants">
               <Inbox className="size-4" />
