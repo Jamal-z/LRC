@@ -126,21 +126,37 @@ export function InterviewsPage() {
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState<InterviewWithRelations | null>(null)
   const [tab, setTab] = useUrlState("tab", "applicants")
-  const [search, setSearch] = useUrlState("q", "")
+  // every section keeps its own search (Applicants has its own inside InterviewApplicants)
+  const [acceptedSearch, setAcceptedSearch] = useUrlState("q_accepted", "")
+  const [maybeSearch, setMaybeSearch] = useUrlState("q_maybe", "")
+  const [rejectedSearch, setRejectedSearch] = useUrlState("q_rejected", "")
+  const searches: Record<InterviewStatus, { value: string; set: (value: string) => void }> = {
+    accepted: { value: acceptedSearch, set: setAcceptedSearch },
+    maybe: { value: maybeSearch, set: setMaybeSearch },
+    rejected: { value: rejectedSearch, set: setRejectedSearch },
+  }
 
-  const byStatus = useMemo(() => {
+  const allByStatus = useMemo(() => {
     const groups: Record<InterviewStatus, InterviewWithRelations[]> = {
       accepted: [],
       maybe: [],
       rejected: [],
     }
-    const needle = normalizeName(search)
-    for (const interview of interviews ?? []) {
-      if (needle && !searchText(interview).includes(needle)) continue
-      groups[interview.status].push(interview)
-    }
+    for (const interview of interviews ?? []) groups[interview.status].push(interview)
     return groups
-  }, [interviews, search])
+  }, [interviews])
+
+  const byStatus = useMemo(() => {
+    const filter = (list: InterviewWithRelations[], search: string) => {
+      const needle = normalizeName(search)
+      return needle ? list.filter((interview) => searchText(interview).includes(needle)) : list
+    }
+    return {
+      accepted: filter(allByStatus.accepted, acceptedSearch),
+      maybe: filter(allByStatus.maybe, maybeSearch),
+      rejected: filter(allByStatus.rejected, rejectedSearch),
+    }
+  }, [allByStatus, acceptedSearch, maybeSearch, rejectedSearch])
 
   // export follows the open tab: a decision tab exports just that list, Applicants exports all
   const activeStatus = STATUS_ORDER.find((s) => s === tab)
@@ -231,41 +247,48 @@ export function InterviewsPage() {
             </TabsTrigger>
             {STATUS_ORDER.map((status) => (
               <TabsTrigger key={status} value={status}>
-                {INTERVIEW_STATUS_LABELS[status]} ({byStatus[status].length})
+                {INTERVIEW_STATUS_LABELS[status]} ({allByStatus[status].length})
               </TabsTrigger>
             ))}
           </TabsList>
-
-          {tab !== "applicants" && (
-            <div className="relative mt-1 max-w-sm">
-              <Search className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="h-10 ps-9"
-                placeholder="Search name, phone, major, team…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          )}
 
           <TabsContent value="applicants">
             <InterviewApplicants />
           </TabsContent>
 
           {STATUS_ORDER.map((status) => (
-            <TabsContent key={status} value={status}>
+            <TabsContent key={status} value={status} className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="relative max-w-xs flex-1">
+                  <Search className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-10 ps-9"
+                    placeholder={`Search ${INTERVIEW_STATUS_LABELS[status].toLowerCase()}…`}
+                    value={searches[status].value}
+                    onChange={(e) => searches[status].set(e.target.value)}
+                  />
+                </div>
+                {searches[status].value.trim() && (
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {byStatus[status].length}
+                    </span>{" "}
+                    of {allByStatus[status].length} match
+                  </p>
+                )}
+              </div>
               <Card>
                 <CardContent className="p-0">
                   {byStatus[status].length === 0 ? (
                     <EmptyState
                       title={
-                        search.trim()
+                        searches[status].value.trim()
                           ? "No matches"
                           : `Nothing under ${INTERVIEW_STATUS_LABELS[status].toLowerCase()}`
                       }
                       description={
-                        search.trim()
-                          ? "Try a different name or number — the other tabs show their own matches."
+                        searches[status].value.trim()
+                          ? "Try a name, phone number, major or team."
                           : "Record an interview and file it here."
                       }
                       icon={MessageSquareText}
