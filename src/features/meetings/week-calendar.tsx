@@ -1,11 +1,20 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { addDays, addWeeks, format, isSameDay, isToday, startOfWeek } from "date-fns"
-import { ChevronLeft, ChevronRight, DoorOpen, Hourglass, Video } from "lucide-react"
+import { addDays, addWeeks, format, isSameDay, isToday, parseISO, startOfWeek } from "date-fns"
+import {
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  DoorOpen,
+  Hourglass,
+  TriangleAlert,
+  Video,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CENTER_HALL_NAME } from "@/lib/constants"
+import { useUrlState } from "@/lib/use-url-state"
 import { cn } from "@/lib/utils"
 import type { MeetingCalendarEntry } from "@/types/database.types"
 import { meetingEnd, useMeetingCalendar } from "./use-meetings"
@@ -80,7 +89,18 @@ function placeDay(entries: MeetingCalendarEntry[]): PlacedEntry[] {
  */
 export function WeekCalendar({ onPickSlot }: { onPickSlot?: (start: Date) => void }) {
   const navigate = useNavigate()
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }))
+  // the week shown is kept in the URL so coming back from a meeting lands on the same week
+  const [weekParam, setWeekParam] = useUrlState("week", "")
+  const weekStart = useMemo(() => {
+    const parsed = weekParam ? parseISO(weekParam) : null
+    return startOfWeek(parsed && !Number.isNaN(parsed.getTime()) ? parsed : new Date(), {
+      weekStartsOn: 0,
+    })
+  }, [weekParam])
+  const setWeekStart = (next: Date) =>
+    setWeekParam(
+      isSameDay(next, startOfWeek(new Date(), { weekStartsOn: 0 })) ? "" : format(next, "yyyy-MM-dd")
+    )
   const weekEnd = addDays(weekStart, 7)
   const { data: entries = [], isLoading, isError } = useMeetingCalendar(weekStart, weekEnd)
 
@@ -148,7 +168,7 @@ export function WeekCalendar({ onPickSlot }: { onPickSlot?: (start: Date) => voi
               variant="outline"
               size="icon"
               aria-label="Previous week"
-              onClick={() => setWeekStart((w) => addWeeks(w, -1))}
+              onClick={() => setWeekStart(addWeeks(weekStart, -1))}
             >
               <ChevronLeft className="size-4 rtl:rotate-180" />
             </Button>
@@ -164,7 +184,7 @@ export function WeekCalendar({ onPickSlot }: { onPickSlot?: (start: Date) => voi
               variant="outline"
               size="icon"
               aria-label="Next week"
-              onClick={() => setWeekStart((w) => addWeeks(w, 1))}
+              onClick={() => setWeekStart(addWeeks(weekStart, 1))}
             >
               <ChevronRight className="size-4 rtl:rotate-180" />
             </Button>
@@ -288,6 +308,16 @@ export function WeekCalendar({ onPickSlot }: { onPickSlot?: (start: Date) => voi
             <Video className="size-3" />
             Online
           </span>
+          <span className="h-3 w-px bg-border" />
+          <span className="inline-flex items-center gap-1.5">
+            <CircleCheck className="size-3.5 fill-emerald-500 text-white dark:text-emerald-950" />
+            Minutes written
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-4 rounded-sm border-2 border-dashed border-red-500" />
+            <TriangleAlert className="size-3 text-red-600 dark:text-red-400" />
+            Over, no minutes yet
+          </span>
         </div>
       </CardContent>
     </Card>
@@ -324,7 +354,11 @@ function CalendarBlock({
       : entry.room === "booking_requested"
         ? "Room requested"
         : (entry.location ?? CENTER_HALL_NAME)
-  const tooltip = `${entry.booth_name ?? "Booth"} — ${entry.title}\n${timeLabel} · ${where}`
+  // over and still no minutes — the thing a leader has to notice
+  const noMinutes = entry.status === "scheduled" && end < new Date()
+  const minutesNote =
+    entry.status === "completed" ? "\nMinutes written" : noMinutes ? "\nNo minutes yet" : ""
+  const tooltip = `${entry.booth_name ?? "Booth"} — ${entry.title}\n${timeLabel} · ${where}${minutesNote}`
 
   return (
     <button
@@ -341,7 +375,8 @@ function CalendarBlock({
         entry.can_open ? "cursor-pointer hover:shadow-md" : "cursor-default",
         entry.mode === "online" && "border-dashed opacity-80",
         entry.room === "booking_requested" && "border-dashed border-amber-500 dark:border-amber-400",
-        entry.status === "completed" && "opacity-60"
+        noMinutes &&
+          "border-2 border-dashed border-red-500 ring-2 ring-red-500/25 dark:border-red-400"
       )}
       style={{
         top: (top / 60) * HOUR_PX + 1,
@@ -359,6 +394,17 @@ function CalendarBlock({
           <DoorOpen className="size-3 shrink-0" />
         ) : null}
         <span className="truncate">{entry.booth_name ?? "Booth"}</span>
+        {entry.status === "completed" ? (
+          <CircleCheck
+            className="ms-auto size-3.5 shrink-0 fill-emerald-500 text-white dark:text-emerald-950"
+            aria-label="Minutes written"
+          />
+        ) : noMinutes ? (
+          <TriangleAlert
+            className="ms-auto size-3.5 shrink-0 text-red-600 dark:text-red-400"
+            aria-label="No minutes yet"
+          />
+        ) : null}
       </span>
       <span className="block truncate opacity-80">{timeLabel}</span>
       {height > 52 && <span className="block truncate opacity-80">{entry.title}</span>}

@@ -8,6 +8,7 @@ import {
   DoorOpen,
   FileText,
   MessageSquareText,
+  NotebookPen,
   Package,
   ShieldCheck,
   Trash2,
@@ -52,6 +53,11 @@ const TYPE_META: Record<string, { icon: typeof Bell; tint: string; label: string
   meeting_completed: {
     icon: Users2,
     tint: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    label: "Minutes",
+  },
+  meeting_minutes_missing: {
+    icon: NotebookPen,
+    tint: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
     label: "Minutes",
   },
   meeting_room_request: {

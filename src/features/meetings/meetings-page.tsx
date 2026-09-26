@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/features/auth/auth-context"
+import { useUrlState } from "@/lib/use-url-state"
 import { needsMinutes, useManageableBooths, useMeetings } from "./use-meetings"
 import { MeetingList } from "./meeting-list"
 import { MeetingFormDialog } from "./meeting-form-dialog"
@@ -37,8 +38,9 @@ export function MeetingsPage() {
   const { data: meetings = [], isLoading } = useMeetings()
   const { data: myBooths = [] } = useManageableBooths(profile?.id, isAdmin)
 
-  const [view, setView] = useState<View>("upcoming")
-  const [boothFilter, setBoothFilter] = useState(ALL)
+  const [viewParam, setView] = useUrlState("view", "upcoming")
+  const view = viewParam as View
+  const [boothFilter, setBoothFilter] = useUrlState("booth", ALL)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [pickedStart, setPickedStart] = useState<Date | null>(null)
 

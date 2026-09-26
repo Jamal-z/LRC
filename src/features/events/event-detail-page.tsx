@@ -1,7 +1,6 @@
 import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import {
-  ArrowLeft,
   CalendarDays,
   Clock,
   Download,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -44,6 +44,7 @@ import { PhotoGallery } from "./photo-gallery"
 import { EVENT_STATUS_LABELS, TASK_STATUS_LABELS } from "@/lib/constants"
 import { exportToExcel, type ExportColumn } from "@/lib/export"
 import type { TaskStatus } from "@/types/database.types"
+import { useUrlState } from "@/lib/use-url-state"
 import type { ParticipantWithDetails } from "./use-events"
 
 export function EventDetailPage() {
@@ -56,6 +57,7 @@ export function EventDetailPage() {
   const saveGuest = useSaveGuest()
   const deleteGuest = useDeleteGuest()
 
+  const [tab, setTab] = useUrlState("tab", "booths")
   const [editOpen, setEditOpen] = useState(false)
   const [sponsorOpen, setSponsorOpen] = useState(false)
   const [sponsorName, setSponsorName] = useState("")
@@ -149,10 +151,7 @@ export function EventDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to="/events" />}>
-          <ArrowLeft className="size-4" />
-          Back to events
-        </Button>
+        <BackButton fallback="/events" />
       </div>
 
       <Card>
@@ -209,7 +208,7 @@ export function EventDetailPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="booths">
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="booths">Booths ({booths.length})</TabsTrigger>
           <TabsTrigger value="participants">Participants ({participants.length})</TabsTrigger>

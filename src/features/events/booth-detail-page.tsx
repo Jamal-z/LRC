@@ -2,7 +2,6 @@ import { useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
-  ArrowLeft,
   CalendarPlus,
   ClipboardCheck,
   MapPin,
@@ -15,6 +14,7 @@ import {
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -38,6 +38,7 @@ import { BoothProposalsTab } from "./booth-proposals-tab"
 import { useMeetings } from "@/features/meetings/use-meetings"
 import { MeetingList } from "@/features/meetings/meeting-list"
 import { MeetingFormDialog } from "@/features/meetings/meeting-form-dialog"
+import { useUrlState } from "@/lib/use-url-state"
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -52,6 +53,7 @@ export function BoothDetailPage() {
   const saveParticipant = useSaveParticipant()
   const removeParticipant = useRemoveParticipant()
 
+  const [tab, setTab] = useUrlState("tab", "volunteers")
   const [addOpen, setAddOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -138,10 +140,7 @@ export function BoothDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to={`/events/${eventId}`} />}>
-          <ArrowLeft className="size-4" />
-          Back to event
-        </Button>
+        <BackButton fallback={`/events/${eventId}`} />
       </div>
 
       <Card>
@@ -198,7 +197,7 @@ export function BoothDetailPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="volunteers">
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
         <TabsList>
           <TabsTrigger value="volunteers">Volunteers ({boothParticipants.length})</TabsTrigger>
           <TabsTrigger value="meetings">Meetings ({meetings.length})</TabsTrigger>

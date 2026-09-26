@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   Copy,
   ExternalLink,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -421,10 +421,7 @@ export function FormBuilderPage() {
           builder you cannot save from is a builder that loses work */}
       <div className="sticky top-0 z-30 -mx-1 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/95 px-1 py-2 backdrop-blur">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" render={<Link to="/forms" />}>
-            <ArrowLeft className="size-4" />
-            Back to forms
-          </Button>
+          <BackButton fallback="/forms" />
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
             {isNew ? "Create form" : "Edit form"}
           </h1>

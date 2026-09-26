@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import {
-  ArrowLeft,
   BarChart3,
   Check,
   Copy,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -52,6 +52,7 @@ import {
   useSetFormActive,
 } from "./use-forms"
 import type { FormFieldRow, FormResponseRow } from "@/types/database.types"
+import { useUrlState } from "@/lib/use-url-state"
 
 function answerText(value: string | string[] | null | undefined) {
   if (Array.isArray(value)) return value.join("، ")
@@ -121,6 +122,7 @@ export function FormResponsesPage() {
   const setFormActive = useSetFormActive()
   const reviewResponse = useReviewResponse()
 
+  const [tab, setTab] = useUrlState("tab", "summary")
   const [viewing, setViewing] = useState<FormResponseRow | null>(null)
 
   const pending = useMemo(() => responses.filter((r) => r.status === "pending"), [responses])
@@ -240,10 +242,7 @@ export function FormResponsesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to="/forms" />}>
-          <ArrowLeft className="size-4" />
-          Back to forms
-        </Button>
+        <BackButton fallback="/forms" />
       </div>
 
       <Card className="overflow-hidden pt-0">
@@ -328,7 +327,7 @@ export function FormResponsesPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="summary">
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
         <TabsList>
           <TabsTrigger value="summary">
             <BarChart3 className="size-3.5" />

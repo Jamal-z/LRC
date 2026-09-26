@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { Link } from "react-router-dom"
 import { CheckCircle2, ChevronRight, FileText, Inbox, Search, UserRoundPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/shared/empty-state"
+import { useUrlState } from "@/lib/use-url-state"
 import { cn } from "@/lib/utils"
 import { useFormApplicants, useFormsWithResponses } from "./use-interviews"
 
@@ -17,13 +18,15 @@ import { useFormApplicants, useFormsWithResponses } from "./use-interviews"
  */
 export function InterviewApplicants() {
   const { data: forms, isLoading } = useFormsWithResponses()
-  const [formId, setFormId] = useState<string | null>(null)
-  const [search, setSearch] = useState("")
+  // kept in the URL so Back from an interview returns to the same form and search
+  const [formParam, setFormId] = useUrlState("form", "")
+  const formId = formParam || null
+  const [search, setSearch] = useUrlState("q", "")
 
   // land on the newest form with responses so the tab is never empty
   useEffect(() => {
     if (!formId && forms?.length) setFormId(forms[0].id)
-  }, [formId, forms])
+  }, [formId, forms, setFormId])
 
   const { data: applicants, isLoading: applicantsLoading } = useFormApplicants(formId ?? undefined)
 

@@ -1,7 +1,6 @@
 import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import {
-  ArrowLeft,
   CalendarDays,
   Clock,
   LifeBuoy,
@@ -17,6 +16,7 @@ import { useVolunteer } from "./use-volunteers"
 import { evaluationAverage, useVolunteerHistory } from "./use-volunteer-history"
 import { VolunteerFormDialog } from "./volunteer-form-dialog"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -79,10 +79,7 @@ export function VolunteerProfilePage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to="/volunteers" />}>
-          <ArrowLeft className="size-4" />
-          Back to volunteers
-        </Button>
+        <BackButton fallback="/volunteers" />
       </div>
 
       <Card>

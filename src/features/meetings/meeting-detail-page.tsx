@@ -2,7 +2,6 @@ import { useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { format } from "date-fns"
 import {
-  ArrowLeft,
   Ban,
   CalendarClock,
   Check,
@@ -24,6 +23,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -159,10 +159,7 @@ export function MeetingDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to="/meetings" />}>
-          <ArrowLeft className="size-4" />
-          All meetings
-        </Button>
+        <BackButton fallback="/meetings" />
       </div>
 
       <Card>

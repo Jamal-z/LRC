@@ -60,6 +60,7 @@ import {
 } from "./use-volunteers"
 import { VolunteerFormDialog } from "./volunteer-form-dialog"
 import { exportToCsv, exportToExcel, type ExportColumn } from "@/lib/export"
+import { useUrlState } from "@/lib/use-url-state"
 
 const ALL = "__all__"
 
@@ -121,9 +122,9 @@ export function VolunteersPage() {
   const { data: tags = [] } = useTags()
   const terminateVolunteer = useTerminateVolunteer()
 
-  const [search, setSearch] = useState("")
-  const [departmentFilter, setDepartmentFilter] = useState(ALL)
-  const [tagFilter, setTagFilter] = useState(ALL)
+  const [search, setSearch] = useUrlState("q", "")
+  const [departmentFilter, setDepartmentFilter] = useUrlState("team", ALL)
+  const [tagFilter, setTagFilter] = useUrlState("tag", ALL)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<VolunteerWithRelations | null>(null)
   const [terminating, setTerminating] = useState<VolunteerWithRelations | null>(null)

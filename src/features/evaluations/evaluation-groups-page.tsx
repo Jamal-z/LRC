@@ -1,7 +1,8 @@
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Building2, ClipboardCheck, Store, Users } from "lucide-react"
+import { Building2, ClipboardCheck, Store, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/shared/empty-state"
@@ -140,10 +141,7 @@ export function EvaluationGroupsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to="/evaluations" />}>
-          <ArrowLeft className="size-4" />
-          Back to events
-        </Button>
+        <BackButton fallback="/evaluations" />
       </div>
 
       <div>

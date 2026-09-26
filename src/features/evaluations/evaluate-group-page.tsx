@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, Sparkles, Star, UserRoundCheck, LifeBuoy } from "lucide-react"
+import { CheckCircle2, Sparkles, Star, UserRoundCheck, LifeBuoy } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -226,10 +227,7 @@ export function EvaluateGroupPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to={`/evaluations/${eventId}`} />}>
-          <ArrowLeft className="size-4" />
-          Back to booths & teams
-        </Button>
+        <BackButton fallback={`/evaluations/${eventId}`} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

@@ -129,7 +129,26 @@ export function useSaveInterview() {
         .insert(input)
         .select("id")
         .single()
-      if (error) throw error
+      if (error) {
+        // two interviewers on the same applicant can both press Save on the
+        // brand-new interview — the second one updates the row the first made
+        if (error.code === "23505" && input.form_response_id) {
+          const { data: existing } = await supabase
+            .from("interviews")
+            .select("id")
+            .eq("form_response_id", input.form_response_id)
+            .maybeSingle()
+          if (existing) {
+            const { error: updateError } = await supabase
+              .from("interviews")
+              .update(input)
+              .eq("id", existing.id)
+            if (updateError) throw updateError
+            return existing.id as string
+          }
+        }
+        throw error
+      }
       return data.id as string
     },
     onSuccess: (id) => {
@@ -169,6 +188,21 @@ export function useDeleteInterview() {
 /* Applicants waiting to be interviewed, pulled straight from a form   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One answer as the interview page shows it. Choice questions keep their full
+ * option list next to what was picked, so "which teams" reads as every team
+ * with the chosen ones lit up rather than one long comma-joined line.
+ */
+export interface ApplicantAnswer {
+  label: string
+  /** the answer as plain text (choices joined) — what search and export use */
+  value: string
+  /** every option the question offered; empty for free-text questions */
+  options: string[]
+  /** what they picked, for choice questions */
+  selected: string[]
+}
+
 /** One person who filled in a form, with their answers already unpacked. */
 export interface FormApplicant {
   responseId: string
@@ -179,7 +213,7 @@ export interface FormApplicant {
   /** the answers mapped onto volunteer columns via each field's `maps_to` */
   mapped: Record<string, string>
   /** every answer, in the form's own order, for reading during the interview */
-  answers: { label: string; value: string }[]
+  answers: ApplicantAnswer[]
   fullName: string
   /** set once someone has opened an interview for this response */
   interviewId: string | null
@@ -210,6 +244,22 @@ function answerToText(raw: string | string[] | null | undefined) {
   return Array.isArray(raw) ? raw.join("، ") : String(raw)
 }
 
+const CHOICE_TYPES = new Set<FormFieldRow["field_type"]>(["select", "radio", "checkbox"])
+
+function toApplicantAnswer(
+  field: FormFieldRow,
+  raw: string | string[] | null | undefined
+): ApplicantAnswer {
+  const isChoice = CHOICE_TYPES.has(field.field_type) && (field.options?.length ?? 0) > 0
+  const picked = raw == null ? [] : (Array.isArray(raw) ? raw : [raw]).map((v) => String(v).trim())
+  return {
+    label: field.label,
+    value: answerToText(raw).trim(),
+    options: isChoice ? field.options : [],
+    selected: isChoice ? picked.filter(Boolean) : [],
+  }
+}
+
 /** Everyone who filled in one form, ready to be interviewed. */
 export function useFormApplicants(formId: string | undefined) {
   return useQuery({
@@ -237,10 +287,7 @@ export function useFormApplicants(formId: string | undefined) {
         // same way whichever door they came through — in particular a language
         // grid, whose nine rows all feed the one column
         const mapped = collectMappedAnswers(fieldRows, response.answers)
-        const answers = fieldRows.map((field) => ({
-          label: field.label,
-          value: answerToText(response.answers[field.id]).trim(),
-        }))
+        const answers = fieldRows.map((field) => toApplicantAnswer(field, response.answers[field.id]))
 
         return {
           responseId: response.id,
@@ -280,10 +327,7 @@ export function useFormApplicant(responseId: string | undefined) {
 
       const fieldRows = (fields ?? []) as unknown as FormFieldRow[]
       const mapped = collectMappedAnswers(fieldRows, row.answers)
-      const answers = fieldRows.map((field) => ({
-        label: field.label,
-        value: answerToText(row.answers[field.id]).trim(),
-      }))
+      const answers = fieldRows.map((field) => toApplicantAnswer(field, row.answers[field.id]))
 
       return {
         responseId: row.id,

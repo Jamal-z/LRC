@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
-  ArrowLeft,
   Building2,
   CalendarRange,
   Check,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -65,6 +65,7 @@ import {
   TASK_STATUS_LABELS,
 } from "@/lib/constants"
 import type { TaskPriority, TaskStatus, UserRole } from "@/types/database.types"
+import { useUrlState } from "@/lib/use-url-state"
 
 const NO_ASSIGNEE = "__unassigned__"
 
@@ -86,6 +87,7 @@ export function DepartmentDetailPage() {
   const addLeader = useAddDepartmentLeader()
   const removeLeader = useRemoveDepartmentLeader()
 
+  const [tab, setTab] = useUrlState("tab", "volunteers")
   const [addLeaderOpen, setAddLeaderOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [addVolunteersOpen, setAddVolunteersOpen] = useState(false)
@@ -168,10 +170,7 @@ export function DepartmentDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to="/departments" />}>
-          <ArrowLeft className="size-4" />
-          Back to departments
-        </Button>
+        <BackButton fallback="/departments" />
       </div>
 
       <Card>
@@ -261,7 +260,7 @@ export function DepartmentDetailPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="volunteers">
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
         <TabsList>
           <TabsTrigger value="volunteers">Volunteers ({volunteers.length})</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations ({departmentEvents.length})</TabsTrigger>

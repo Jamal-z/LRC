@@ -5,6 +5,7 @@ import {
   Inbox,
   MessageSquareText,
   Plus,
+  Search,
   Star,
   Trash2,
   UserRoundPlus,
@@ -13,6 +14,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -42,6 +44,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { EmptyState } from "@/components/shared/empty-state"
 import { exportToCsv, exportToExcel, type ExportColumn } from "@/lib/export"
+import { normalizeName } from "@/lib/names"
+import { useUrlState } from "@/lib/use-url-state"
 import { cn } from "@/lib/utils"
 import type { InterviewStatus } from "@/types/database.types"
 import { InterviewApplicants } from "./interview-applicants"
@@ -58,6 +62,25 @@ import {
 } from "./use-interviews"
 
 const STATUS_ORDER: InterviewStatus[] = ["accepted", "maybe", "rejected"]
+
+/** Everything worth finding someone by, folded so ة/ه, أ/ا etc. match. */
+function searchText(interview: InterviewWithRelations) {
+  return normalizeName(
+    [
+      interview.full_name,
+      interview.phone,
+      interview.email,
+      interview.university_id,
+      interview.major,
+      interview.city,
+      interview.applied_for,
+      interview.departments?.name,
+      interview.profiles?.full_name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
+}
 
 const EXPORT_COLUMNS: ExportColumn<InterviewWithRelations>[] = [
   { header: "Full Name", value: (i) => i.full_name },
@@ -102,7 +125,8 @@ export function InterviewsPage() {
 
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState<InterviewWithRelations | null>(null)
-  const [tab, setTab] = useState<string>("applicants")
+  const [tab, setTab] = useUrlState("tab", "applicants")
+  const [search, setSearch] = useUrlState("q", "")
 
   const byStatus = useMemo(() => {
     const groups: Record<InterviewStatus, InterviewWithRelations[]> = {
@@ -110,9 +134,13 @@ export function InterviewsPage() {
       maybe: [],
       rejected: [],
     }
-    for (const interview of interviews ?? []) groups[interview.status].push(interview)
+    const needle = normalizeName(search)
+    for (const interview of interviews ?? []) {
+      if (needle && !searchText(interview).includes(needle)) continue
+      groups[interview.status].push(interview)
+    }
     return groups
-  }, [interviews])
+  }, [interviews, search])
 
   // export follows the open tab: a decision tab exports just that list, Applicants exports all
   const activeStatus = STATUS_ORDER.find((s) => s === tab)
@@ -208,6 +236,18 @@ export function InterviewsPage() {
             ))}
           </TabsList>
 
+          {tab !== "applicants" && (
+            <div className="relative mt-1 max-w-sm">
+              <Search className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-10 ps-9"
+                placeholder="Search name, phone, major, team…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          )}
+
           <TabsContent value="applicants">
             <InterviewApplicants />
           </TabsContent>
@@ -218,8 +258,16 @@ export function InterviewsPage() {
                 <CardContent className="p-0">
                   {byStatus[status].length === 0 ? (
                     <EmptyState
-                      title={`Nothing under ${INTERVIEW_STATUS_LABELS[status].toLowerCase()}`}
-                      description="Record an interview and file it here."
+                      title={
+                        search.trim()
+                          ? "No matches"
+                          : `Nothing under ${INTERVIEW_STATUS_LABELS[status].toLowerCase()}`
+                      }
+                      description={
+                        search.trim()
+                          ? "Try a different name or number — the other tabs show their own matches."
+                          : "Record an interview and file it here."
+                      }
                       icon={MessageSquareText}
                     />
                   ) : (

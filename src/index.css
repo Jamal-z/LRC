@@ -137,3 +137,25 @@
     @apply font-sans;
     }
 }
+/* Interview page: a field a colleague is typing in right now (data-peer holds their name) */
+[data-peer] {
+  position: relative;
+  outline: 2px solid oklch(0.606 0.25 292.717);
+  outline-offset: 4px;
+  border-radius: 0.5rem;
+}
+[data-peer]::after {
+  content: "✎ " attr(data-peer);
+  position: absolute;
+  top: -0.95rem;
+  inset-inline-end: 0.25rem;
+  z-index: 1;
+  border-radius: 9999px;
+  background: oklch(0.606 0.25 292.717);
+  padding: 0.05rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2rem;
+  color: white;
+  pointer-events: none;
+}

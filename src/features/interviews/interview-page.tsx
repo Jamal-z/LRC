@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react"
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeft,
   Award,
+  Check,
   ClipboardList,
   FileText,
   Gauge,
@@ -28,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
+import { useGoBack } from "@/components/shared/back-button"
 import { useDepartments } from "@/features/departments/use-departments"
 import { useAuth } from "@/features/auth/auth-context"
 import { cn } from "@/lib/utils"
@@ -40,9 +43,11 @@ import {
   useFormApplicant,
   useInterview,
   useSaveInterview,
+  type ApplicantAnswer,
   type FormApplicant,
   type InterviewWithRelations,
 } from "./use-interviews"
+import { useInterviewRoom, type DraftPatch } from "./use-interview-room"
 
 /* ------------------------------------------------------------------ */
 /* Building blocks                                                     */
@@ -261,6 +266,77 @@ function draftFromApplicant(applicant: FormApplicant): DraftState {
   }
 }
 
+/** Draft keys a colleague may change live — everything the page lets you edit. */
+const LIVE_FIELDS = new Set<string>(
+  Object.keys(emptyDraft()).filter((key) => key !== "form_response_id")
+)
+
+function applyPatch(draft: DraftState, patch: DraftPatch): DraftState {
+  if (!LIVE_FIELDS.has(patch.field)) return draft
+  const key = patch.field as keyof DraftState
+  if (patch.sub != null) {
+    if (key !== "ratings" && key !== "criteria_notes") return draft
+    const next: Record<string, unknown> = { ...draft[key] }
+    if (patch.value == null || patch.value === "") delete next[patch.sub]
+    else next[patch.sub] = patch.value
+    return { ...draft, [key]: next }
+  }
+  return { ...draft, [key]: patch.value }
+}
+
+/** A colleague's whole live draft, keeping only keys this page knows about. */
+function mergeRemoteDraft(local: DraftState, remote: unknown): DraftState {
+  if (!remote || typeof remote !== "object") return local
+  const next = { ...local }
+  for (const [key, value] of Object.entries(remote)) {
+    if (LIVE_FIELDS.has(key)) (next as Record<string, unknown>)[key] = value
+  }
+  return next
+}
+
+/**
+ * One form answer. A choice question lists every option it offered, with the
+ * ones they picked filled in — so "which teams" shows the whole set of teams
+ * and theirs stand out, instead of one comma-joined line.
+ */
+function AnswerItem({ answer }: { answer: ApplicantAnswer }) {
+  if (answer.options.length) {
+    // anything they picked that is no longer an option still has to show
+    const extra = answer.selected.filter((value) => !answer.options.includes(value))
+    return (
+      <div className="min-w-0 rounded-lg bg-white/70 px-3 py-2.5 sm:col-span-2 dark:bg-white/5">
+        <dt className="text-xs font-medium text-muted-foreground">{answer.label}</dt>
+        <dd className="mt-1.5 flex flex-wrap gap-1.5">
+          {[...answer.options, ...extra].map((option) => {
+            const picked = answer.selected.includes(option)
+            return (
+              <span
+                key={option}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-sm",
+                  picked
+                    ? "border-blue-600 bg-blue-600 font-medium text-white shadow-sm dark:border-blue-400 dark:bg-blue-500"
+                    : "border-border bg-background/50 text-muted-foreground/70"
+                )}
+              >
+                {picked && <Check className="size-3.5" />}
+                {option}
+              </span>
+            )
+          })}
+        </dd>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-w-0 rounded-lg bg-white/70 px-3 py-2 dark:bg-white/5">
+      <dt className="text-xs font-medium text-muted-foreground">{answer.label}</dt>
+      <dd className="whitespace-pre-wrap break-words text-sm text-foreground">{answer.value}</dd>
+    </div>
+  )
+}
+
 const STATUS_DOT: Record<InterviewStatus, string> = {
   accepted: "bg-emerald-500",
   maybe: "bg-amber-500",
@@ -274,28 +350,86 @@ export function InterviewPage() {
   const [searchParams] = useSearchParams()
   const fromResponseId = searchParams.get("from") ?? undefined
   const navigate = useNavigate()
+  const goBack = useGoBack("/interviews")
+  const queryClient = useQueryClient()
   const { profile } = useAuth()
   const { data: departments } = useDepartments()
   const { data: interview, isLoading } = useInterview(id)
+  // a saved interview keeps showing what they wrote in the form, not only a new one
   const { data: applicant, isLoading: applicantLoading } = useFormApplicant(
-    id ? undefined : fromResponseId
+    id ? (interview?.form_response_id ?? undefined) : fromResponseId
   )
   const saveInterview = useSaveInterview()
   const convertInterview = useConvertInterview()
 
   const [draft, setDraft] = useState<DraftState>(emptyDraft)
   const [nameError, setNameError] = useState<string | null>(null)
+  // what the draft was loaded from (an interview id or a form response id).
+  // Once loaded, refetches never overwrite it — someone may be mid-sentence,
+  // here or on a colleague's laptop.
+  const loadedFrom = useRef<string | null>(null)
+  const [ready, setReady] = useState(!id && !fromResponseId)
+  const draftRef = useRef(draft)
+  useEffect(() => {
+    draftRef.current = draft
+  }, [draft])
 
   useEffect(() => {
-    if (interview) setDraft(draftFrom(interview))
+    if (!interview || loadedFrom.current === interview.id) return
+    loadedFrom.current = interview.id
+    setDraft(draftFrom(interview))
+    setReady(true)
   }, [interview])
 
   useEffect(() => {
-    if (!id && applicant) setDraft(draftFromApplicant(applicant))
+    if (id || !applicant || loadedFrom.current === applicant.responseId) return
+    loadedFrom.current = applicant.responseId
+    setDraft(draftFromApplicant(applicant))
+    setReady(true)
   }, [id, applicant])
 
+  // colleagues filling in the same interview: keyed by the form response when
+  // there is one, so a new interview and its saved version share one room
+  const room = useInterviewRoom<DraftState>({
+    roomKey: ready ? (draft.form_response_id ?? id ?? null) : null,
+    user: profile ? { id: profile.id, name: profile.full_name } : null,
+    handlers: {
+      getDraft: () => draftRef.current,
+      onPatch: (patch) => setDraft((prev) => applyPatch(prev, patch)),
+      onAdopt: (remote) => setDraft((prev) => mergeRemoteDraft(prev, remote)),
+      onSaved: (savedId) => {
+        queryClient.invalidateQueries({ queryKey: ["interviews"] })
+        queryClient.invalidateQueries({ queryKey: ["form-applicants"] })
+        if (!id) {
+          // a colleague saved the new interview first — follow them onto it
+          loadedFrom.current = savedId
+          navigate(`/interviews/${savedId}`, { replace: true })
+        }
+      },
+    },
+  })
+
+  const peersByField = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const peer of room.peers) {
+      if (!peer.focus) continue
+      map.set(peer.focus, [...(map.get(peer.focus) ?? []), peer.name.split(" ")[0] || "Someone"])
+    }
+    return map
+  }, [room.peers])
+
+  /** Marks a field so colleagues see who is in it (styled in index.css). */
+  function live(field: string) {
+    return { "data-field": field, "data-peer": peersByField.get(field)?.join(", ") || undefined }
+  }
+
+  function change(patch: DraftPatch) {
+    setDraft((prev) => applyPatch(prev, patch))
+    room.sendPatch(patch)
+  }
+
   function set<K extends keyof DraftState>(key: K, value: DraftState[K]) {
-    setDraft((prev) => ({ ...prev, [key]: value }))
+    change({ field: key, value })
   }
 
   const average = interviewAverage(draft.ratings)
@@ -351,6 +485,7 @@ export function InterviewPage() {
 
     try {
       const savedId = await saveInterview.mutateAsync(payload("accepted"))
+      room.announceSaved(savedId)
       const volunteerId = await convertInterview.mutateAsync({
         ...payload("accepted"),
         id: savedId,
@@ -370,9 +505,14 @@ export function InterviewPage() {
 
     try {
       const savedId = await saveInterview.mutateAsync(payload(draft.status))
+      room.announceSaved(savedId)
       toast.success(interview ? "Interview updated" : `${draft.full_name.trim()} recorded`)
-      if (closeAfter) navigate("/interviews")
-      else if (!interview) navigate(`/interviews/${savedId}`, { replace: true })
+      // back to wherever they opened it from — the applicants list, a decision tab…
+      if (closeAfter) goBack()
+      else if (!interview) {
+        loadedFrom.current = savedId
+        navigate(`/interviews/${savedId}`, { replace: true })
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save the interview")
     }
@@ -392,7 +532,18 @@ export function InterviewPage() {
   return (
     // roomier type than the rest of the app: this page is filled in live while
     // talking to someone, so it has to be easy to scan and type into
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 text-[15px] leading-relaxed">
+    <div
+      className="mx-auto flex max-w-5xl flex-col gap-4 text-[15px] leading-relaxed"
+      // tell colleagues which field we're in
+      onFocusCapture={(e) =>
+        room.setFocus(
+          (e.target as HTMLElement).closest<HTMLElement>("[data-field]")?.dataset.field ?? null
+        )
+      }
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) room.setFocus(null)
+      }}
+    >
       {/* ---------------- header ---------------- */}
       <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-slate-900 shadow-lg shadow-blue-900/20">
         <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
@@ -430,6 +581,31 @@ export function InterviewPage() {
                   </span>
                 )}
               </div>
+              {room.connected && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-blue-100">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/20 px-2.5 py-1 font-medium text-emerald-100 ring-1 ring-emerald-300/30">
+                    <span className="size-1.5 animate-pulse rounded-full bg-emerald-300" />
+                    Live
+                  </span>
+                  {room.peers.length === 0 ? (
+                    <span className="text-blue-200/80">
+                      Anyone who opens this interview sees your changes as you type.
+                    </span>
+                  ) : (
+                    room.peers.map((peer) => (
+                      <span
+                        key={peer.clientId}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-violet-500/30 px-2 py-0.5 font-medium text-white ring-1 ring-violet-300/40"
+                      >
+                        <span className="grid size-4 place-items-center rounded-full bg-violet-400 text-[0.6rem] font-semibold">
+                          {peer.name.trim().charAt(0).toUpperCase() || "?"}
+                        </span>
+                        {peer.name || "A colleague"} is here
+                      </span>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -438,7 +614,7 @@ export function InterviewPage() {
               variant="ghost"
               size="sm"
               className="text-white hover:bg-white/15 hover:text-white"
-              render={<Link to="/interviews" />}
+              onClick={goBack}
             >
               <ArrowLeft className="size-4" />
               Back
@@ -504,7 +680,7 @@ export function InterviewPage() {
       </div>
 
       {/* ---------------- what they wrote in the form ---------------- */}
-      {applicant && !id && (
+      {applicant && (
         <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-500/25 dark:bg-blue-500/10">
           <CardHeader>
             <CardTitle className="flex items-center gap-2.5 text-base">
@@ -514,22 +690,17 @@ export function InterviewPage() {
               Pre-filled from “{applicant.formTitle}”
             </CardTitle>
             <CardDescription>
-              Submitted {new Date(applicant.submittedAt).toLocaleDateString()} — their answers are
-              below, and the fields are already filled in.
+              Submitted {new Date(applicant.submittedAt).toLocaleDateString()} — everything they
+              wrote in the form
+              {id ? "." : ", and the fields below are already filled in from it."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
               {applicant.answers
                 .filter((answer) => answer.value)
-                .map((answer) => (
-                  <div
-                    key={answer.label}
-                    className="min-w-0 rounded-lg bg-white/70 px-3 py-2 dark:bg-white/5"
-                  >
-                    <dt className="text-xs font-medium text-muted-foreground">{answer.label}</dt>
-                    <dd className="truncate text-sm text-foreground">{answer.value}</dd>
-                  </div>
+                .map((answer, index) => (
+                  <AnswerItem key={`${index}-${answer.label}`} answer={answer} />
                 ))}
             </dl>
           </CardContent>
@@ -543,7 +714,7 @@ export function InterviewPage() {
         title="Candidate details"
       >
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field className="sm:col-span-2" data-invalid={!!nameError}>
+          <Field className="sm:col-span-2" data-invalid={!!nameError} {...live("full_name")}>
             <FieldLabel htmlFor="i-name">Full name *</FieldLabel>
             <Input
               id="i-name"
@@ -557,7 +728,7 @@ export function InterviewPage() {
             {nameError && <FieldError>{nameError}</FieldError>}
           </Field>
 
-          <Field>
+          <Field {...live("phone")}>
             <FieldLabel htmlFor="i-phone">WhatsApp number</FieldLabel>
             <Input
               id="i-phone"
@@ -568,7 +739,7 @@ export function InterviewPage() {
             />
           </Field>
 
-          <Field>
+          <Field {...live("email")}>
             <FieldLabel htmlFor="i-email">Email</FieldLabel>
             <Input
               id="i-email"
@@ -580,7 +751,7 @@ export function InterviewPage() {
             />
           </Field>
 
-          <Field>
+          <Field {...live("university_id")}>
             <FieldLabel htmlFor="i-university-id">University ID</FieldLabel>
             <Input
               id="i-university-id"
@@ -590,7 +761,7 @@ export function InterviewPage() {
             />
           </Field>
 
-          <Field>
+          <Field {...live("major")}>
             <FieldLabel htmlFor="i-major">Major</FieldLabel>
             <Input
               id="i-major"
@@ -600,7 +771,7 @@ export function InterviewPage() {
             />
           </Field>
 
-          <Field>
+          <Field {...live("city")}>
             <FieldLabel htmlFor="i-city">City / residence</FieldLabel>
             <Input
               id="i-city"
@@ -610,7 +781,7 @@ export function InterviewPage() {
             />
           </Field>
 
-          <Field>
+          <Field {...live("applied_for")}>
             <FieldLabel htmlFor="i-applied-for">Applied for</FieldLabel>
             <Input
               id="i-applied-for"
@@ -621,7 +792,7 @@ export function InterviewPage() {
             />
           </Field>
 
-          <Field>
+          <Field {...live("interviewed_at")}>
             <FieldLabel htmlFor="i-date">Interview date</FieldLabel>
             <Input
               id="i-date"
@@ -632,7 +803,7 @@ export function InterviewPage() {
             />
           </Field>
 
-          <Field>
+          <Field {...live("department_id")}>
             <FieldLabel>Team they'd join</FieldLabel>
             <Select
               value={draft.department_id || null}
@@ -661,7 +832,7 @@ export function InterviewPage() {
         description="Languages, past volunteering and extra talents — written down, not scored."
       >
         <div className="flex flex-col gap-6">
-          <Field>
+          <Field {...live("languages")}>
             <FieldLabel htmlFor="i-languages">Languages they speak</FieldLabel>
             <Input
               id="i-languages"
@@ -674,7 +845,7 @@ export function InterviewPage() {
           </Field>
 
           <div className="rounded-xl border border-border bg-muted/30 p-4">
-            <Field>
+            <Field {...live("volunteered_before")}>
               <FieldLabel>Have they volunteered before?</FieldLabel>
               <YesNoPicker
                 value={draft.volunteered_before}
@@ -683,7 +854,7 @@ export function InterviewPage() {
             </Field>
 
             {draft.volunteered_before !== false && (
-              <Field className="mt-4">
+              <Field className="mt-4" {...live("previous_volunteering")}>
                 <FieldLabel htmlFor="i-prev-vol">Where, and what did they do?</FieldLabel>
                 <Textarea
                   id="i-prev-vol"
@@ -697,7 +868,7 @@ export function InterviewPage() {
             )}
           </div>
 
-          <Field>
+          <Field {...live("other_skills")}>
             <FieldLabel htmlFor="i-other-skills">Other talents & skills</FieldLabel>
             <Textarea
               id="i-other-skills"
@@ -712,7 +883,7 @@ export function InterviewPage() {
             </FieldDescription>
           </Field>
 
-          <Field>
+          <Field {...live("applied_before")}>
             <FieldLabel>Have they applied to us before?</FieldLabel>
             <YesNoPicker
               value={draft.applied_before}
@@ -737,6 +908,7 @@ export function InterviewPage() {
             return (
               <div
                 key={criterion.key}
+                {...live(`criteria.${criterion.key}`)}
                 className={cn(
                   "grid grid-cols-1 gap-3 rounded-xl border p-3.5 transition-colors sm:grid-cols-[minmax(0,16rem)_1fr] sm:items-center",
                   rated
@@ -751,12 +923,7 @@ export function InterviewPage() {
                     <StarPicker
                       value={draft.ratings[criterion.key] ?? null}
                       onChange={(value) =>
-                        setDraft((prev) => {
-                          const ratings = { ...prev.ratings }
-                          if (value == null) delete ratings[criterion.key]
-                          else ratings[criterion.key] = value
-                          return { ...prev, ratings }
-                        })
+                        change({ field: "ratings", sub: criterion.key, value })
                       }
                     />
                   </div>
@@ -766,10 +933,7 @@ export function InterviewPage() {
                   placeholder="Note on this point…"
                   value={draft.criteria_notes[criterion.key] ?? ""}
                   onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      criteria_notes: { ...prev.criteria_notes, [criterion.key]: e.target.value },
-                    }))
+                    change({ field: "criteria_notes", sub: criterion.key, value: e.target.value })
                   }
                 />
               </div>
@@ -785,7 +949,7 @@ export function InterviewPage() {
         title="General notes"
       >
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field>
+          <Field {...live("strengths")}>
             <FieldLabel htmlFor="i-strengths">Strengths</FieldLabel>
             <Textarea
               id="i-strengths"
@@ -796,7 +960,7 @@ export function InterviewPage() {
               onChange={(e) => set("strengths", e.target.value)}
             />
           </Field>
-          <Field>
+          <Field {...live("concerns")}>
             <FieldLabel htmlFor="i-concerns">Concerns</FieldLabel>
             <Textarea
               id="i-concerns"
@@ -807,7 +971,7 @@ export function InterviewPage() {
               onChange={(e) => set("concerns", e.target.value)}
             />
           </Field>
-          <Field className="sm:col-span-2">
+          <Field className="sm:col-span-2" {...live("notes")}>
             <FieldLabel htmlFor="i-notes">Notes</FieldLabel>
             <Textarea
               id="i-notes"
@@ -838,7 +1002,7 @@ export function InterviewPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-500/25 dark:bg-amber-500/10">
-            <Field>
+            <Field {...live("overall_rating")}>
               <FieldLabel className="text-amber-900 dark:text-amber-200">
                 Our overall rating — out of 10
               </FieldLabel>
@@ -855,7 +1019,7 @@ export function InterviewPage() {
             </Field>
           </div>
 
-          <Field className="max-w-sm">
+          <Field className="max-w-sm" {...live("status")}>
             <FieldLabel>Decision</FieldLabel>
             <Select
               value={draft.status}
@@ -877,7 +1041,7 @@ export function InterviewPage() {
       </Card>
 
       <div className="sticky bottom-0 -mx-2 flex flex-wrap justify-end gap-2 border-t border-border bg-background/85 px-2 py-3 backdrop-blur">
-        <Button variant="ghost" render={<Link to="/interviews" />}>
+        <Button variant="ghost" onClick={goBack}>
           Cancel
         </Button>
         <Button

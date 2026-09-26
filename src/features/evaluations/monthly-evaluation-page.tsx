@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, CalendarRange, CheckCircle2, LifeBuoy, Star, UserRoundCheck } from "lucide-react"
+import { CalendarRange, CheckCircle2, LifeBuoy, Star, UserRoundCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/shared/back-button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -196,10 +197,7 @@ export function MonthlyEvaluationPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="ghost" size="sm" render={<Link to={`/departments/${departmentId}`} />}>
-          <ArrowLeft className="size-4" />
-          Back to team
-        </Button>
+        <BackButton fallback={`/departments/${departmentId}`} />
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3">

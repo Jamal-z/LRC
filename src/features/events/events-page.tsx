@@ -19,6 +19,7 @@ import { useEvents, type EventListItem } from "./use-events"
 import { EventFormDialog } from "./event-form-dialog"
 import { EVENT_STATUS_LABELS } from "@/lib/constants"
 import type { EventStatus } from "@/types/database.types"
+import { useUrlState } from "@/lib/use-url-state"
 
 const ALL = "__all__"
 
@@ -34,8 +35,8 @@ const STATUS_BADGE: Record<EventStatus, string> = {
 export function EventsPage() {
   const { profile } = useAuth()
   const { data: events, isLoading } = useEvents()
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState(ALL)
+  const [search, setSearch] = useUrlState("q", "")
+  const [statusFilter, setStatusFilter] = useUrlState("status", ALL)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<EventListItem | null>(null)
 

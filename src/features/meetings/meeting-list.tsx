@@ -1,6 +1,15 @@
 import { Link } from "react-router-dom"
 import { format } from "date-fns"
-import { CalendarClock, CheckSquare, Clock, MapPin, Users, Video } from "lucide-react"
+import {
+  CalendarClock,
+  CheckSquare,
+  CircleCheck,
+  Clock,
+  MapPin,
+  TriangleAlert,
+  Users,
+  Video,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { MEETING_MODE_LABELS, MEETING_STATUS_BADGE, MEETING_STATUS_LABELS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -27,8 +36,12 @@ export function MeetingList({
           <li key={meeting.id}>
             <Link
               to={`/meetings/${meeting.id}`}
+              // the leading edge says at a glance whether the minutes are written
               className={cn(
-                "flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/50",
+                "flex items-start gap-3 rounded-xl border border-s-4 border-border bg-card p-3 transition-colors hover:bg-accent/50",
+                meeting.status === "completed" && "border-s-emerald-500",
+                overdue &&
+                  "border-dashed border-red-300 border-s-red-500 bg-red-50/50 dark:border-red-500/40 dark:bg-red-500/5",
                 meeting.status === "cancelled" && "opacity-60"
               )}
             >
@@ -48,8 +61,14 @@ export function MeetingList({
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{meeting.title}</p>
                   {overdue ? (
-                    <Badge className="bg-amber-100 text-[0.65rem] text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                      Needs minutes
+                    <Badge className="bg-red-100 text-[0.65rem] text-red-700 dark:bg-red-500/15 dark:text-red-300">
+                      <TriangleAlert className="size-3" />
+                      No minutes yet
+                    </Badge>
+                  ) : meeting.status === "completed" ? (
+                    <Badge className={cn("text-[0.65rem]", MEETING_STATUS_BADGE.completed)}>
+                      <CircleCheck className="size-3" />
+                      Minutes written
                     </Badge>
                   ) : (
                     <Badge className={cn("text-[0.65rem]", MEETING_STATUS_BADGE[meeting.status])}>
