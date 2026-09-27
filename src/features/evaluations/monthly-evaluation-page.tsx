@@ -39,9 +39,11 @@ function initials(name: string) {
 function StarPicker({
   value,
   onChange,
+  disabled = false,
 }: {
   value: number | null
   onChange: (value: number) => void
+  disabled?: boolean
 }) {
   return (
     <div className="flex gap-1">
@@ -49,9 +51,10 @@ function StarPicker({
         <button
           key={star}
           type="button"
+          disabled={disabled}
           onClick={() => onChange(star)}
           aria-label={`${star} out of 5`}
-          className="transition-transform hover:scale-110"
+          className="transition-transform enabled:hover:scale-110 disabled:cursor-default"
         >
           <Star
             className={cn(
@@ -134,6 +137,8 @@ export function MonthlyEvaluationPage() {
   const [notesError, setNotesError] = useState<string | null>(null)
 
   const selected = targets.find((t) => t.volunteerId === selectedId) ?? null
+  // only admins may edit an evaluation someone else wrote (RLS enforces it too)
+  const readOnly = !isReviewer && !!selected?.evaluation && !selected.isOwnEvaluation
 
   useEffect(() => {
     if (!targets.length) return
@@ -364,11 +369,18 @@ export function MonthlyEvaluationPage() {
               </CardHeader>
 
               <CardContent className="flex flex-col gap-6">
+                {readOnly && (
+                  <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+                    {selected.evaluatedByName} already evaluated {selected.fullName} for this month,
+                    so there's nothing to add here. Ask an admin if it needs changing.
+                  </p>
+                )}
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   {MONTHLY_CRITERIA.map((criterion) => (
                     <Field key={criterion.key}>
                       <FieldLabel>{criterion.label}</FieldLabel>
                       <StarPicker
+                        disabled={readOnly}
                         value={draft.ratings[criterion.key]}
                         onChange={(value) =>
                           setDraft((prev) => ({
@@ -386,6 +398,7 @@ export function MonthlyEvaluationPage() {
                   <Field>
                     <FieldLabel htmlFor="me-strengths">Strengths</FieldLabel>
                     <Textarea
+                      disabled={readOnly}
                       id="me-strengths"
                       rows={3}
                       value={draft.strengths}
@@ -395,6 +408,7 @@ export function MonthlyEvaluationPage() {
                   <Field>
                     <FieldLabel htmlFor="me-improve">Areas to improve</FieldLabel>
                     <Textarea
+                      disabled={readOnly}
                       id="me-improve"
                       rows={3}
                       value={draft.areasToImprove}
@@ -415,6 +429,7 @@ export function MonthlyEvaluationPage() {
                     )}
                   >
                     <Checkbox
+                      disabled={readOnly}
                       checked={draft.futureLeader}
                       onCheckedChange={(value) =>
                         setDraft((prev) => ({ ...prev, futureLeader: !!value }))
@@ -440,6 +455,7 @@ export function MonthlyEvaluationPage() {
                     )}
                   >
                     <Checkbox
+                      disabled={readOnly}
                       checked={draft.needsFollowUp}
                       onCheckedChange={(value) =>
                         setDraft((prev) => ({ ...prev, needsFollowUp: !!value }))
@@ -460,6 +476,7 @@ export function MonthlyEvaluationPage() {
                 <Field data-invalid={!!notesError}>
                   <FieldLabel htmlFor="me-notes">Note *</FieldLabel>
                   <Textarea
+                    disabled={readOnly}
                     id="me-notes"
                     rows={4}
                     placeholder="How was this month for them…"
@@ -476,17 +493,19 @@ export function MonthlyEvaluationPage() {
                   )}
                 </Field>
 
-                <div className="flex justify-end">
-                  <Button size="lg" onClick={handleSave} disabled={saveEvaluation.isPending}>
-                    {saveEvaluation.isPending
-                      ? "Saving…"
-                      : selected.evaluatedByName
-                        ? "Save correction"
-                        : selected.evaluation
-                          ? "Update evaluation"
-                          : "Save evaluation"}
-                  </Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex justify-end">
+                    <Button size="lg" onClick={handleSave} disabled={saveEvaluation.isPending}>
+                      {saveEvaluation.isPending
+                        ? "Saving…"
+                        : selected.evaluatedByName
+                          ? "Save correction"
+                          : selected.evaluation
+                            ? "Update evaluation"
+                            : "Save evaluation"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

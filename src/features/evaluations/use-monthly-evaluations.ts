@@ -76,16 +76,16 @@ export function useMonthlyTargets(
           const own = evaluations.find(
             (ev) => ev.volunteer_id === row.volunteer_id && ev.evaluated_by === evaluatorId
           )
-          const shown =
-            own ??
-            (isReviewer ? evaluations.find((ev) => ev.volunteer_id === row.volunteer_id) : undefined)
+          // one evaluation per volunteer per month — a leader has to see the
+          // one an admin already wrote, or they'd try to insert a second
+          const shown = own ?? evaluations.find((ev) => ev.volunteer_id === row.volunteer_id)
 
           return {
             volunteerId: row.volunteer_id,
             fullName: row.volunteers!.full_name,
             photoUrl: row.volunteers!.photo_url,
             evaluation: shown ?? null,
-            evaluatedByName: shown && !own ? (shown.profiles?.full_name ?? "a leader") : null,
+            evaluatedByName: shown && !own ? (shown.profiles?.full_name ?? "someone else") : null,
             isOwnEvaluation: !!own,
           }
         })
@@ -124,10 +124,13 @@ export function useSaveMonthlyEvaluation() {
         const { id, evaluated_by, ...updates } = input
         void evaluated_by
         const { error } = await supabase.from("monthly_evaluations").update(updates).eq("id", id)
-        if (error) throw error
+        if (error) throw new Error(error.message)
       } else {
         const { error } = await supabase.from("monthly_evaluations").insert(input)
-        if (error) throw error
+        if (error?.code === "23505") {
+          throw new Error("This volunteer was already evaluated for this month — reload to see it.")
+        }
+        if (error) throw new Error(error.message)
       }
     },
     onSuccess: () => {
