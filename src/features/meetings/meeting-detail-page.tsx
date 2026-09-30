@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { format } from "date-fns"
 import {
   Ban,
+  Building2,
   CalendarClock,
   Check,
   CheckSquare,
@@ -62,13 +63,14 @@ import {
 import { cn } from "@/lib/utils"
 import type { MeetingMode, TaskPriority } from "@/types/database.types"
 import {
+  meetingTeamLabel,
   needsMinutes,
-  useBoothTeam,
   useDeleteMeeting,
-  useLeadsBooth,
+  useLeadsTeam,
   useMarkRoomBooked,
   useMeeting,
   useRecordMinutes,
+  useMeetingTeam,
   useSetMeetingStatus,
   type MeetingDetail,
 } from "./use-meetings"
@@ -103,7 +105,10 @@ export function MeetingDetailPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { data: meeting, isLoading } = useMeeting(id)
-  const { data: leadsBooth = false } = useLeadsBooth(meeting?.booth_id, profile?.id)
+  const { data: leadsTeam = false } = useLeadsTeam(
+    { boothId: meeting?.booth_id, departmentId: meeting?.department_id },
+    profile?.id
+  )
   const setStatus = useSetMeetingStatus()
   const deleteMeeting = useDeleteMeeting()
 
@@ -112,7 +117,7 @@ export function MeetingDetailPage() {
   const [recording, setRecording] = useState(false)
 
   const isAdmin = profile?.role === "super_admin" || profile?.role === "admin"
-  const canManage = isAdmin || leadsBooth
+  const canManage = isAdmin || leadsTeam
 
   if (isLoading) {
     return (
@@ -184,12 +189,19 @@ export function MeetingDetailPage() {
                 )}
               </div>
               <Link
-                to={`/events/${meeting.event_id}/booths/${meeting.booth_id}`}
+                to={
+                  meeting.department_id
+                    ? `/departments/${meeting.department_id}?tab=meetings`
+                    : `/events/${meeting.event_id}/booths/${meeting.booth_id}`
+                }
                 className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:underline"
               >
-                <Store className="size-3.5" />
-                {meeting.event_booths?.name ?? "Booth"}
-                {meeting.events && ` — ${meeting.events.name}`}
+                {meeting.department_id ? (
+                  <Building2 className="size-3.5" />
+                ) : (
+                  <Store className="size-3.5" />
+                )}
+                {meetingTeamLabel(meeting)}
               </Link>
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
@@ -400,7 +412,7 @@ function MinutesView({ meeting }: { meeting: MeetingDetail }) {
         <CardHeader>
           <CardTitle className="text-base">Attendance</CardTitle>
           <CardDescription>
-            {present.length} of {attendance.length} booth volunteers attended
+            {present.length} of {attendance.length} team members attended
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-1">
@@ -491,7 +503,10 @@ function ActionItemsCard({ tasks }: { tasks: MeetingDetail["tasks"] }) {
 // ------------------------------------------------------------------
 function MinutesForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () => void }) {
   const { profile } = useAuth()
-  const { data: team, isLoading: teamLoading } = useBoothTeam(meeting.booth_id)
+  const { data: team, isLoading: teamLoading } = useMeetingTeam({
+    boothId: meeting.booth_id,
+    departmentId: meeting.department_id,
+  })
   const recordMinutes = useRecordMinutes()
 
   const [attended, setAttended] = useState<Set<string>>(
@@ -506,7 +521,7 @@ function MinutesForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () =
   const [ideasNotes, setIdeasNotes] = useState(meeting.ideas_notes ?? "")
   const [actionItems, setActionItems] = useState<ActionItemDraft[]>([])
 
-  // current booth volunteers, plus anyone already on the sheet who has since left the booth
+  // current team members, plus anyone already on the sheet who has since left the team
   const roster = useMemo(() => {
     const map = new Map<string, { id: string; full_name: string; photo_url: string | null }>()
     for (const v of team?.volunteers ?? []) map.set(v.id, v)
@@ -737,7 +752,7 @@ function MinutesForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () =
         <CardHeader>
           <CardTitle className="text-base">Who attended?</CardTitle>
           <CardDescription>
-            {attended.size} of {roster.length} booth volunteers
+            {attended.size} of {roster.length} team members
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-1">
@@ -746,7 +761,9 @@ function MinutesForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () =
           ) : roster.length === 0 ? (
             <Field>
               <FieldDescription>
-                This booth has no volunteers yet. Add them from the booth page to track attendance.
+                {meeting.department_id
+                  ? "This department has no volunteers yet. Add them to the department to track attendance."
+                  : "This booth has no volunteers yet. Add them from the booth page to track attendance."}
               </FieldDescription>
             </Field>
           ) : (

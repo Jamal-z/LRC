@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { MEETING_MODE_LABELS, MEETING_STATUS_BADGE, MEETING_STATUS_LABELS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
-import { needsMinutes, type MeetingListItem } from "./use-meetings"
+import { meetingTeamLabel, needsMinutes, type MeetingListItem } from "./use-meetings"
 
 export function MeetingList({
   meetings,
@@ -83,8 +83,7 @@ export function MeetingList({
                 </div>
                 {showBooth && (
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {meeting.event_booths?.name ?? "Booth"}
-                    {meeting.events && ` — ${meeting.events.name}`}
+                    {meetingTeamLabel(meeting)}
                   </p>
                 )}
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">

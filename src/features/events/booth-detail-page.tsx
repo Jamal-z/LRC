@@ -58,7 +58,7 @@ export function BoothDetailPage() {
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [meetingOpen, setMeetingOpen] = useState(false)
-  const { data: meetings = [] } = useMeetings(boothId)
+  const { data: meetings = [] } = useMeetings({ boothId })
 
   // is this user a leader of THIS booth? (drives what they may change)
   const { data: leadsThisBooth = false } = useQuery({

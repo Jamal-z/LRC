@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
   Building2,
+  CalendarPlus,
   CalendarRange,
   Check,
   ClipboardCheck,
@@ -10,6 +11,7 @@ import {
   UserMinus,
   UserPlus,
   Users,
+  Users2,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -53,6 +55,9 @@ import {
   useUpdateTaskStatus,
 } from "./use-department-details"
 import { useVolunteers } from "@/features/volunteers/use-volunteers"
+import { useMeetings } from "@/features/meetings/use-meetings"
+import { MeetingList } from "@/features/meetings/meeting-list"
+import { MeetingFormDialog } from "@/features/meetings/meeting-form-dialog"
 import { MONTH_NAMES, useMonthlySummary } from "@/features/evaluations/use-monthly-evaluations"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -102,6 +107,8 @@ export function DepartmentDetailPage() {
   const { data: allVolunteers = [] } = useVolunteers()
   const { data: departmentEvents = [] } = useDepartmentEventEvaluations(id)
   const { data: monthlySummary } = useMonthlySummary(id)
+  const { data: meetings = [] } = useMeetings({ departmentId: id })
+  const [meetingOpen, setMeetingOpen] = useState(false)
   const addVolunteers = useAddVolunteersToDepartment()
   const removeVolunteer = useRemoveVolunteerFromDepartment()
   const createTask = useCreateDepartmentTask()
@@ -137,6 +144,8 @@ export function DepartmentDetailPage() {
   const availableUsers = adminUsers.filter(
     (user) => !leaders.some((l) => l.user_id === user.id)
   )
+  // the department's own leaders run its meetings, like booth leaders do theirs
+  const canScheduleMeetings = isAdmin || leaders.some((l) => l.user_id === profile?.id)
 
   const memberIds = new Set(volunteers.map((vd) => vd.volunteers?.id).filter(Boolean))
   const availableVolunteers = allVolunteers.filter((volunteer) => {
@@ -265,6 +274,7 @@ export function DepartmentDetailPage() {
           <TabsTrigger value="volunteers">Volunteers ({volunteers.length})</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations ({departmentEvents.length})</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
+          <TabsTrigger value="meetings">Meetings ({meetings.length})</TabsTrigger>
           <TabsTrigger value="events">Events ({events.length})</TabsTrigger>
         </TabsList>
 
@@ -537,6 +547,40 @@ export function DepartmentDetailPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="meetings">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Team meetings</CardTitle>
+                <CardDescription>
+                  Every volunteer in {department.name} is on the attendance sheet.
+                </CardDescription>
+              </div>
+              {canScheduleMeetings && (
+                <Button size="sm" variant="outline" onClick={() => setMeetingOpen(true)}>
+                  <CalendarPlus className="size-4" />
+                  Schedule meeting
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {meetings.length === 0 ? (
+                <EmptyState
+                  title="No meetings yet"
+                  description={
+                    canScheduleMeetings
+                      ? "Use “Schedule meeting” to plan one with the whole team."
+                      : undefined
+                  }
+                  icon={Users2}
+                />
+              ) : (
+                <MeetingList meetings={meetings} showBooth={false} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="events">
           <Card>
             <CardContent>
@@ -569,6 +613,13 @@ export function DepartmentDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <MeetingFormDialog
+        open={meetingOpen}
+        onOpenChange={setMeetingOpen}
+        department={{ id: department.id, name: department.name }}
+        onSaved={(meetingId) => navigate(`/meetings/${meetingId}`)}
+      />
 
       <Dialog open={addLeaderOpen} onOpenChange={setAddLeaderOpen}>
         <DialogContent className="sm:max-w-md">

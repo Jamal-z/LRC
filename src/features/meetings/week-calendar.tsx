@@ -17,15 +17,15 @@ import { CENTER_HALL_NAME } from "@/lib/constants"
 import { useUrlState } from "@/lib/use-url-state"
 import { cn } from "@/lib/utils"
 import type { MeetingCalendarEntry } from "@/types/database.types"
-import { meetingEnd, useMeetingCalendar } from "./use-meetings"
+import { calendarTeam, meetingEnd, useMeetingCalendar } from "./use-meetings"
 
 const HOUR_PX = 44
 const DEFAULT_FIRST_HOUR = 8
 const DEFAULT_LAST_HOUR = 20 // grid ends at this hour
 const SLOT_MINUTES = 30
 
-// one colour per booth; literal class names so Tailwind keeps them
-const BOOTH_COLORS = [
+// one colour per team; literal class names so Tailwind keeps them
+const TEAM_COLORS = [
   { block: "bg-sky-100 border-sky-400 text-sky-900 dark:bg-sky-500/20 dark:border-sky-400/60 dark:text-sky-100", dot: "bg-sky-500" },
   { block: "bg-violet-100 border-violet-400 text-violet-900 dark:bg-violet-500/20 dark:border-violet-400/60 dark:text-violet-100", dot: "bg-violet-500" },
   { block: "bg-emerald-100 border-emerald-400 text-emerald-900 dark:bg-emerald-500/20 dark:border-emerald-400/60 dark:text-emerald-100", dot: "bg-emerald-500" },
@@ -36,10 +36,10 @@ const BOOTH_COLORS = [
   { block: "bg-lime-100 border-lime-500 text-lime-900 dark:bg-lime-500/20 dark:border-lime-400/60 dark:text-lime-100", dot: "bg-lime-500" },
 ]
 
-function boothColor(boothId: string) {
+function teamColor(teamId: string) {
   let hash = 0
-  for (let i = 0; i < boothId.length; i++) hash = (hash * 31 + boothId.charCodeAt(i)) >>> 0
-  return BOOTH_COLORS[hash % BOOTH_COLORS.length]
+  for (let i = 0; i < teamId.length; i++) hash = (hash * 31 + teamId.charCodeAt(i)) >>> 0
+  return TEAM_COLORS[hash % TEAM_COLORS.length]
 }
 
 interface PlacedEntry {
@@ -83,7 +83,7 @@ function placeDay(entries: MeetingCalendarEntry[]): PlacedEntry[] {
 }
 
 /**
- * The week at a glance: every booth's meetings, coloured by team, so leaders
+ * The week at a glance: every team's meetings, coloured by team, so leaders
  * can see which days and hours are busy before picking a time. Clicking a free
  * spot starts a new meeting there.
  */
@@ -130,7 +130,10 @@ export function WeekCalendar({ onPickSlot }: { onPickSlot?: (start: Date) => voi
 
   const teams = useMemo(() => {
     const map = new Map<string, string>()
-    for (const e of entries) map.set(e.booth_id, e.booth_name ?? "Booth")
+    for (const e of entries) {
+      const team = calendarTeam(e)
+      map.set(team.id, team.name)
+    }
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   }, [entries])
 
@@ -287,7 +290,7 @@ export function WeekCalendar({ onPickSlot }: { onPickSlot?: (start: Date) => voi
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
           {teams.map(([id, name]) => (
             <span key={id} className="inline-flex items-center gap-1.5">
-              <span className={cn("size-2.5 rounded-full", boothColor(id).dot)} />
+              <span className={cn("size-2.5 rounded-full", teamColor(id).dot)} />
               {name}
             </span>
           ))}
@@ -346,7 +349,8 @@ function CalendarBlock({
   const bottom = Math.min(gridMinutes, (end.getTime() - gridStart.getTime()) / 60_000)
   const height = Math.max(((bottom - top) / 60) * HOUR_PX, 20)
 
-  const color = boothColor(entry.booth_id)
+  const team = calendarTeam(entry)
+  const color = teamColor(team.id)
   const timeLabel = `${format(start, "HH:mm")}–${format(end, "HH:mm")}`
   const where =
     entry.mode === "online"
@@ -358,7 +362,7 @@ function CalendarBlock({
   const noMinutes = entry.status === "scheduled" && end < new Date()
   const minutesNote =
     entry.status === "completed" ? "\nMinutes written" : noMinutes ? "\nNo minutes yet" : ""
-  const tooltip = `${entry.booth_name ?? "Booth"} — ${entry.title}\n${timeLabel} · ${where}${minutesNote}`
+  const tooltip = `${team.name} — ${entry.title}\n${timeLabel} · ${where}${minutesNote}`
 
   return (
     <button
@@ -393,7 +397,7 @@ function CalendarBlock({
         ) : entry.room === "booked" ? (
           <DoorOpen className="size-3 shrink-0" />
         ) : null}
-        <span className="truncate">{entry.booth_name ?? "Booth"}</span>
+        <span className="truncate">{team.name}</span>
         {entry.status === "completed" ? (
           <CircleCheck
             className="ms-auto size-3.5 shrink-0 fill-emerald-500 text-white dark:text-emerald-950"

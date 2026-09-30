@@ -685,10 +685,12 @@ export type MeetingStatus = "scheduled" | "completed" | "cancelled"
 /** Where an in-person meeting happens — see migration 024. */
 export type MeetingRoom = "center_hall" | "booking_requested" | "booked"
 
+/** A team meeting — a booth's (booth_id + event_id) or a department's (department_id). */
 export type BoothMeetingRow = {
   id: string
-  booth_id: string
-  event_id: string
+  booth_id: string | null
+  event_id: string | null
+  department_id: string | null
   title: string
   agenda: string | null
   scheduled_at: string
@@ -707,7 +709,7 @@ export type BoothMeetingRow = {
   updated_at: string
 }
 export type BoothMeetingInsert = Partial<BoothMeetingRow> &
-  Pick<BoothMeetingRow, "booth_id" | "event_id" | "title" | "scheduled_at">
+  Pick<BoothMeetingRow, "title" | "scheduled_at">
 export type BoothMeetingUpdate = Partial<BoothMeetingRow>
 
 export type BoothMeetingAttendanceRow = {
@@ -721,11 +723,13 @@ export type BoothMeetingAttendanceInsert = Omit<BoothMeetingAttendanceRow, "id" 
   Partial<Pick<BoothMeetingAttendanceRow, "id" | "created_at">>
 export type BoothMeetingAttendanceUpdate = Partial<BoothMeetingAttendanceInsert>
 
-/** A busy slot from meeting_calendar() — visible across all booths. */
+/** A busy slot from meeting_calendar() — visible across all teams. */
 export type MeetingCalendarEntry = {
   id: string
-  booth_id: string
+  booth_id: string | null
   booth_name: string | null
+  department_id: string | null
+  department_name: string | null
   event_name: string | null
   title: string
   scheduled_at: string

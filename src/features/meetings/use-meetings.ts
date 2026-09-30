@@ -12,6 +12,7 @@ import type {
 export interface MeetingListItem extends BoothMeetingRow {
   event_booths: { id: string; name: string } | null
   events: { id: string; name: string } | null
+  departments: { id: string; name: string } | null
   booth_meeting_attendance: { attended: boolean }[]
   tasks: { id: string; status: TaskStatus }[]
 }
@@ -19,6 +20,7 @@ export interface MeetingListItem extends BoothMeetingRow {
 export interface MeetingDetail extends BoothMeetingRow {
   event_booths: { id: string; name: string } | null
   events: { id: string; name: string } | null
+  departments: { id: string; name: string } | null
   creator: { id: string; full_name: string } | null
   booth_meeting_attendance: {
     id: string
@@ -37,6 +39,20 @@ export interface MeetingDetail extends BoothMeetingRow {
   }[]
 }
 
+/** Whose meeting it is: "Booth — Event" or the department's name. */
+export function meetingTeamLabel(meeting: Pick<MeetingListItem, "event_booths" | "events" | "departments">) {
+  if (meeting.departments) return meeting.departments.name
+  return `${meeting.event_booths?.name ?? "Booth"}${meeting.events ? ` — ${meeting.events.name}` : ""}`
+}
+
+/** The team a calendar slot belongs to — a booth or a department. */
+export function calendarTeam(entry: MeetingCalendarEntry) {
+  return {
+    id: entry.booth_id ?? entry.department_id ?? entry.id,
+    name: entry.booth_name ?? entry.department_name ?? "Team",
+  }
+}
+
 /** A scheduled meeting whose time has passed but has no minutes yet. */
 export function needsMinutes(meeting: Pick<BoothMeetingRow, "status" | "scheduled_at">) {
   return meeting.status === "scheduled" && new Date(meeting.scheduled_at) < new Date()
@@ -48,8 +64,8 @@ export function meetingEnd(start: Date, durationMinutes: number | null | undefin
 }
 
 /**
- * Busy slots across every booth between two instants, so leaders can see
- * which days and hours are taken — including booths they can't open.
+ * Busy slots across every team between two instants, so leaders can see
+ * which days and hours are taken — including teams they can't open.
  */
 export function useMeetingCalendar(from: Date, to: Date) {
   return useQuery({
@@ -80,15 +96,24 @@ export function findHallClash(
 }
 
 const LIST_SELECT =
-  "*, event_booths:booth_id (id, name), events:event_id (id, name), booth_meeting_attendance (attended), tasks (id, status)"
+  "*, event_booths:booth_id (id, name), events:event_id (id, name), departments:department_id (id, name), booth_meeting_attendance (attended), tasks (id, status)"
 
-/** Meetings the current user can see — all of them, or one booth's. */
-export function useMeetings(boothId?: string) {
+/** One team: a booth or a department. */
+export interface MeetingTeamRef {
+  boothId?: string | null
+  departmentId?: string | null
+}
+
+/** Meetings the current user can see — all of them, or one team's. */
+export function useMeetings(team?: MeetingTeamRef) {
+  const boothId = team?.boothId ?? null
+  const departmentId = team?.departmentId ?? null
   return useQuery({
-    queryKey: ["meetings", boothId ?? "all"],
+    queryKey: ["meetings", "list", boothId, departmentId],
     queryFn: async (): Promise<MeetingListItem[]> => {
       let query = supabase.from("booth_meetings").select(LIST_SELECT)
       if (boothId) query = query.eq("booth_id", boothId)
+      if (departmentId) query = query.eq("department_id", departmentId)
       const { data, error } = await query.order("scheduled_at", { ascending: false })
       if (error) throw error
       return data as unknown as MeetingListItem[]
@@ -103,7 +128,7 @@ export function useMeeting(id: string | undefined) {
       const { data, error } = await supabase
         .from("booth_meetings")
         .select(
-          "*, event_booths:booth_id (id, name), events:event_id (id, name), creator:created_by (id, full_name), booth_meeting_attendance (id, volunteer_id, attended, volunteers (id, full_name, photo_url)), tasks (id, title, status, priority, due_date, assignee:assigned_to_user_id (id, full_name), volunteer_assignee:assigned_to_volunteer_id (id, full_name))"
+          "*, event_booths:booth_id (id, name), events:event_id (id, name), departments:department_id (id, name), creator:created_by (id, full_name), booth_meeting_attendance (id, volunteer_id, attended, volunteers (id, full_name, photo_url)), tasks (id, title, status, priority, due_date, assignee:assigned_to_user_id (id, full_name), volunteer_assignee:assigned_to_volunteer_id (id, full_name))"
         )
         .eq("id", id!)
         .single()
@@ -114,44 +139,64 @@ export function useMeeting(id: string | undefined) {
   })
 }
 
-export interface BoothTeam {
+export interface MeetingTeam {
   volunteers: { id: string; full_name: string; photo_url: string | null }[]
   leaders: { id: string; full_name: string }[]
 }
 
-/** Who belongs to a booth: its volunteers (for attendance) and its leaders. */
-export function useBoothTeam(boothId: string | undefined) {
+type TeamVolunteer = MeetingTeam["volunteers"][number]
+type TeamLeader = MeetingTeam["leaders"][number]
+
+/**
+ * Who belongs to a meeting's team, for attendance and action items: a booth's
+ * volunteers and leaders, or every (non-archived) member of a department and
+ * its leaders.
+ */
+export function useMeetingTeam({ boothId, departmentId }: MeetingTeamRef) {
   return useQuery({
-    queryKey: ["booth-team", boothId],
-    queryFn: async (): Promise<BoothTeam> => {
-      const [participantsRes, leadersRes] = await Promise.all([
-        supabase
-          .from("event_participants")
-          .select("volunteers (id, full_name, photo_url)")
-          .eq("booth_id", boothId!),
-        supabase
-          .from("booth_leaders")
-          .select("profiles:user_id (id, full_name)")
-          .eq("booth_id", boothId!),
+    queryKey: ["meeting-team", boothId ?? null, departmentId ?? null],
+    queryFn: async (): Promise<MeetingTeam> => {
+      const [volunteersRes, leadersRes] = await Promise.all([
+        boothId
+          ? supabase
+              .from("event_participants")
+              .select("volunteers (id, full_name, photo_url)")
+              .eq("booth_id", boothId)
+          : supabase
+              .from("volunteer_departments")
+              .select("volunteers!inner (id, full_name, photo_url, status)")
+              .eq("department_id", departmentId!)
+              .neq("volunteers.status", "archived"),
+        boothId
+          ? supabase
+              .from("booth_leaders")
+              .select("profiles:user_id (id, full_name)")
+              .eq("booth_id", boothId)
+          : supabase
+              .from("department_leaders")
+              .select("profiles:user_id (id, full_name)")
+              .eq("department_id", departmentId!),
       ])
-      if (participantsRes.error) throw participantsRes.error
+      if (volunteersRes.error) throw volunteersRes.error
       if (leadersRes.error) throw leadersRes.error
 
-      const volunteers = (
-        (participantsRes.data ?? []) as unknown as { volunteers: BoothTeam["volunteers"][number] | null }[]
-      )
-        .map((row) => row.volunteers)
-        .filter((v): v is BoothTeam["volunteers"][number] => !!v)
-        .sort((a, b) => a.full_name.localeCompare(b.full_name))
-      const leaders = (
-        (leadersRes.data ?? []) as unknown as { profiles: BoothTeam["leaders"][number] | null }[]
-      )
+      const byId = new Map<string, TeamVolunteer>()
+      for (const row of (volunteersRes.data ?? []) as unknown as {
+        volunteers: TeamVolunteer | null
+      }[]) {
+        if (row.volunteers) {
+          const { id, full_name, photo_url } = row.volunteers
+          byId.set(id, { id, full_name, photo_url })
+        }
+      }
+      const volunteers = [...byId.values()].sort((a, b) => a.full_name.localeCompare(b.full_name))
+      const leaders = ((leadersRes.data ?? []) as unknown as { profiles: TeamLeader | null }[])
         .map((row) => row.profiles)
-        .filter((p): p is BoothTeam["leaders"][number] => !!p)
+        .filter((p): p is TeamLeader => !!p)
 
       return { volunteers, leaders }
     },
-    enabled: !!boothId,
+    enabled: !!boothId || !!departmentId,
   })
 }
 
@@ -182,27 +227,59 @@ export function useManageableBooths(userId: string | undefined, isAdmin: boolean
   })
 }
 
-/** Does the current user lead this booth? */
-export function useLeadsBooth(boothId: string | undefined, userId: string | undefined) {
+export interface ManageableDepartment {
+  id: string
+  name: string
+}
+
+/** Departments the user may schedule meetings for: every active one for admins, otherwise the ones they lead. */
+export function useManageableDepartments(userId: string | undefined, isAdmin: boolean) {
   return useQuery({
-    queryKey: ["leads-booth", boothId, userId],
+    queryKey: ["manageable-departments", userId, isAdmin],
+    queryFn: async (): Promise<ManageableDepartment[]> => {
+      const { data, error } = isAdmin
+        ? await supabase.from("departments").select("id, name").eq("is_active", true)
+        : await supabase
+            .from("departments")
+            .select("id, name, department_leaders!inner (user_id)")
+            .eq("department_leaders.user_id", userId!)
+      if (error) throw error
+      return ((data ?? []) as unknown as ManageableDepartment[])
+        .map(({ id, name }) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    enabled: !!userId,
+  })
+}
+
+/** Does the current user lead this meeting's team (the booth or the department)? */
+export function useLeadsTeam({ boothId, departmentId }: MeetingTeamRef, userId: string | undefined) {
+  return useQuery({
+    queryKey: ["leads-team", boothId ?? null, departmentId ?? null, userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("booth_leaders")
-        .select("id")
-        .eq("booth_id", boothId!)
-        .eq("user_id", userId!)
+      const { data, error } = boothId
+        ? await supabase
+            .from("booth_leaders")
+            .select("id")
+            .eq("booth_id", boothId)
+            .eq("user_id", userId!)
+        : await supabase
+            .from("department_leaders")
+            .select("id")
+            .eq("department_id", departmentId!)
+            .eq("user_id", userId!)
       if (error) throw error
       return (data ?? []).length > 0
     },
-    enabled: !!boothId && !!userId,
+    enabled: (!!boothId || !!departmentId) && !!userId,
   })
 }
 
 export interface SaveMeetingInput {
   id?: string
-  booth_id: string
-  event_id: string
+  booth_id: string | null
+  event_id: string | null
+  department_id: string | null
   title: string
   agenda: string | null
   scheduled_at: string
@@ -249,7 +326,7 @@ export interface ActionItemInput {
 }
 
 export interface RecordMinutesInput {
-  meeting: Pick<BoothMeetingRow, "id" | "booth_id" | "event_id" | "status">
+  meeting: Pick<BoothMeetingRow, "id" | "booth_id" | "event_id" | "department_id" | "status">
   actual_duration_minutes: number | null
   mode: MeetingMode
   summary: string | null
@@ -285,6 +362,8 @@ export function useRecordMinutes() {
             ...item,
             status: "todo" as const,
             created_by: input.userId,
+            // a department meeting's action items land on that department's board
+            department_id: meeting.department_id,
             related_event_id: meeting.event_id,
             related_booth_id: meeting.booth_id,
             related_meeting_id: meeting.id,

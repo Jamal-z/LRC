@@ -15,7 +15,13 @@ import {
 import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/features/auth/auth-context"
 import { useUrlState } from "@/lib/use-url-state"
-import { needsMinutes, useManageableBooths, useMeetings } from "./use-meetings"
+import {
+  meetingTeamLabel,
+  needsMinutes,
+  useManageableBooths,
+  useManageableDepartments,
+  useMeetings,
+} from "./use-meetings"
 import { MeetingList } from "./meeting-list"
 import { MeetingFormDialog } from "./meeting-form-dialog"
 import { WeekCalendar } from "./week-calendar"
@@ -25,10 +31,14 @@ type View = "upcoming" | "minutes" | "completed" | "cancelled"
 const ALL = "__all__"
 
 const EMPTY_TEXT: Record<View, string> = {
-  upcoming: "No upcoming meetings. Schedule one with your booth team.",
+  upcoming: "No upcoming meetings. Schedule one with your team.",
   minutes: "Nothing waiting — every past meeting has its minutes.",
   completed: "No completed meetings yet.",
   cancelled: "No cancelled meetings.",
+}
+
+function teamOf(meeting: { booth_id: string | null; department_id: string | null }) {
+  return meeting.department_id ? `d:${meeting.department_id}` : `b:${meeting.booth_id}`
 }
 
 export function MeetingsPage() {
@@ -37,26 +47,27 @@ export function MeetingsPage() {
   const isAdmin = profile?.role === "super_admin" || profile?.role === "admin"
   const { data: meetings = [], isLoading } = useMeetings()
   const { data: myBooths = [] } = useManageableBooths(profile?.id, isAdmin)
+  const { data: myDepartments = [] } = useManageableDepartments(profile?.id, isAdmin)
 
   const [viewParam, setView] = useUrlState("view", "upcoming")
   const view = viewParam as View
-  const [boothFilter, setBoothFilter] = useUrlState("booth", ALL)
+  // "b:<booth id>" or "d:<department id>"
+  const [teamFilter, setTeamFilter] = useUrlState("team", ALL)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [pickedStart, setPickedStart] = useState<Date | null>(null)
 
-  const booths = useMemo(() => {
+  const teams = useMemo(() => {
     const map = new Map<string, string>()
-    for (const m of meetings) {
-      if (m.event_booths) {
-        map.set(m.event_booths.id, `${m.event_booths.name}${m.events ? ` — ${m.events.name}` : ""}`)
-      }
-    }
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+    for (const m of meetings) map.set(teamOf(m), meetingTeamLabel(m))
+    // departments first, then booths
+    return [...map.entries()].sort((a, b) =>
+      a[0][0] === b[0][0] ? a[1].localeCompare(b[1]) : a[0][0] === "d" ? -1 : 1
+    )
   }, [meetings])
 
   const grouped = useMemo(() => {
     const filtered =
-      boothFilter === ALL ? meetings : meetings.filter((m) => m.booth_id === boothFilter)
+      teamFilter === ALL ? meetings : meetings.filter((m) => teamOf(m) === teamFilter)
     const groups: Record<View, typeof meetings> = {
       upcoming: [],
       minutes: [],
@@ -72,9 +83,9 @@ export function MeetingsPage() {
     // soonest first for what's ahead; the rest stay newest first
     groups.upcoming.reverse()
     return groups
-  }, [meetings, boothFilter])
+  }, [meetings, teamFilter])
 
-  const canSchedule = isAdmin || myBooths.length > 0
+  const canSchedule = isAdmin || myBooths.length > 0 || myDepartments.length > 0
 
   return (
     <div className="flex flex-col gap-4">
@@ -82,7 +93,8 @@ export function MeetingsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Meetings</h1>
           <p className="text-sm text-muted-foreground">
-            Booth team meetings — schedule them, then record who came and what was decided.
+            Department and booth team meetings — schedule them, then record who came and what was
+            decided.
           </p>
         </div>
         {canSchedule && (
@@ -119,14 +131,14 @@ export function MeetingsPage() {
           </TabsList>
         </Tabs>
 
-        {booths.length > 1 && (
-          <Select value={boothFilter} onValueChange={(v) => setBoothFilter(v ?? ALL)}>
+        {teams.length > 1 && (
+          <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v ?? ALL)}>
             <SelectTrigger className="w-full sm:w-64">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All booths</SelectItem>
-              {booths.map(([id, label]) => (
+              <SelectItem value={ALL}>All teams</SelectItem>
+              {teams.map(([id, label]) => (
                 <SelectItem key={id} value={id}>
                   {label}
                 </SelectItem>

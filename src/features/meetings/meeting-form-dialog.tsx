@@ -15,7 +15,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -26,19 +28,27 @@ import { CENTER_HALL_NAME, MEETING_MODE_LABELS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import type { BoothMeetingRow, MeetingMode, MeetingRoom } from "@/types/database.types"
 import {
+  calendarTeam,
   findHallClash,
   meetingEnd,
   useManageableBooths,
+  useManageableDepartments,
   useMeetingCalendar,
   useSaveMeeting,
 } from "./use-meetings"
 
 const NONE = "__none__"
 
+/** The team picker's value: "b:<booth id>" or "d:<department id>". */
+function teamKey(meeting: BoothMeetingRow) {
+  return meeting.department_id ? `d:${meeting.department_id}` : `b:${meeting.booth_id}`
+}
+
 /**
- * Schedule a new booth meeting or edit a scheduled one. Opened from a booth
- * page it is pinned to that booth; opened from the Meetings page the leader
- * picks one of the booths they lead.
+ * Schedule a new team meeting or edit a scheduled one. A team is a booth or a
+ * department (Social Media, Graphic Design, …). Opened from a booth or
+ * department page it is pinned to that team; opened from the Meetings page
+ * the leader picks one of the teams they lead.
  *
  * In-person meetings go in the center hall when it is free; when it is
  * taken the leader can ask the committee to book another room instead.
@@ -48,6 +58,7 @@ export function MeetingFormDialog({
   onOpenChange,
   meeting,
   booth,
+  department,
   initialStart,
   onSaved,
 }: {
@@ -55,17 +66,22 @@ export function MeetingFormDialog({
   onOpenChange: (open: boolean) => void
   meeting?: BoothMeetingRow | null
   booth?: { id: string; name: string; event_id: string } | null
+  department?: { id: string; name: string } | null
   /** Pre-fills the date for a new meeting, e.g. a free slot picked on the calendar. */
   initialStart?: Date | null
   onSaved?: (id: string) => void
 }) {
   const { profile } = useAuth()
   const isAdmin = profile?.role === "super_admin" || profile?.role === "admin"
-  const pickBooth = !meeting && !booth
-  const { data: booths = [] } = useManageableBooths(pickBooth ? profile?.id : undefined, isAdmin)
+  const pickTeam = !meeting && !booth && !department
+  const { data: booths = [] } = useManageableBooths(pickTeam ? profile?.id : undefined, isAdmin)
+  const { data: departments = [] } = useManageableDepartments(
+    pickTeam ? profile?.id : undefined,
+    isAdmin
+  )
   const saveMeeting = useSaveMeeting()
 
-  const [boothId, setBoothId] = useState(NONE)
+  const [team, setTeam] = useState(NONE)
   const [title, setTitle] = useState("")
   const [agenda, setAgenda] = useState("")
   const [scheduledAt, setScheduledAt] = useState("")
@@ -76,7 +92,15 @@ export function MeetingFormDialog({
 
   useEffect(() => {
     if (!open) return
-    setBoothId(meeting?.booth_id ?? booth?.id ?? NONE)
+    setTeam(
+      meeting
+        ? teamKey(meeting)
+        : booth
+          ? `b:${booth.id}`
+          : department
+            ? `d:${department.id}`
+            : NONE
+    )
     setTitle(meeting?.title ?? "")
     setAgenda(meeting?.agenda ?? "")
     setScheduledAt(
@@ -90,7 +114,7 @@ export function MeetingFormDialog({
     setMode(meeting?.mode ?? "in_person")
     setLocation(meeting?.mode === "online" ? (meeting.location ?? "") : "")
     setRequestRoom(meeting?.room === "booking_requested")
-  }, [open, meeting, booth, initialStart])
+  }, [open, meeting, booth, department, initialStart])
 
   const minutes = Number.parseInt(duration, 10)
   const plannedMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : null
@@ -126,7 +150,7 @@ export function MeetingFormDialog({
           return {
             id: e.id,
             label: `${format(s, "HH:mm")}–${format(meetingEnd(s, e.duration_minutes), "HH:mm")}`,
-            booth: e.booth_name ?? "Booth",
+            team: calendarTeam(e).name,
           }
         }),
     [dayEntries, meeting?.id]
@@ -144,10 +168,13 @@ export function MeetingFormDialog({
           : "center_hall"
 
   async function handleSave() {
-    const eventId =
-      meeting?.event_id ?? booth?.event_id ?? booths.find((b) => b.id === boothId)?.event_id
-    if (boothId === NONE || !eventId) {
-      toast.error("Pick the booth this meeting is for")
+    const teamId = team.slice(2)
+    const isDepartment = team.startsWith("d:")
+    const eventId = isDepartment
+      ? null
+      : (meeting?.event_id ?? booth?.event_id ?? booths.find((b) => b.id === teamId)?.event_id)
+    if (team === NONE || (!isDepartment && !eventId)) {
+      toast.error("Pick the team this meeting is for")
       return
     }
     if (title.trim().length < 2) {
@@ -169,8 +196,9 @@ export function MeetingFormDialog({
     try {
       const id = await saveMeeting.mutateAsync({
         ...(meeting ? { id: meeting.id } : { created_by: profile?.id ?? null }),
-        booth_id: boothId,
-        event_id: eventId,
+        booth_id: isDepartment ? null : teamId,
+        event_id: eventId ?? null,
+        department_id: isDepartment ? teamId : null,
         title: title.trim(),
         agenda: agenda.trim() || null,
         scheduled_at: new Date(scheduledAt).toISOString(),
@@ -208,28 +236,47 @@ export function MeetingFormDialog({
           <DialogDescription>
             {booth
               ? `A meeting with the ${booth.name} team.`
-              : "Plan a meeting with your booth team. You'll record the minutes once it's over."}
+              : department
+                ? `A meeting for ${department.name} — all its members are on the attendance sheet.`
+                : "Plan a meeting with your team — a department or a booth. You'll record the minutes once it's over."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
-          {pickBooth && (
+          {pickTeam && (
             <Field>
-              <FieldLabel>Booth *</FieldLabel>
-              <Select value={boothId} onValueChange={(v) => setBoothId(v ?? NONE)}>
+              <FieldLabel>Team *</FieldLabel>
+              <Select value={team} onValueChange={(v) => setTeam(v ?? NONE)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE} disabled>
-                    {booths.length ? "Choose a booth" : "You don't lead any booth yet"}
+                    {booths.length || departments.length
+                      ? "Choose a department or booth"
+                      : "You don't lead any team yet"}
                   </SelectItem>
-                  {booths.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                      {b.events && ` — ${b.events.name}`}
-                    </SelectItem>
-                  ))}
+                  {departments.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Departments</SelectLabel>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={`d:${d.id}`}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {booths.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Booths</SelectLabel>
+                      {booths.map((b) => (
+                        <SelectItem key={b.id} value={`b:${b.id}`}>
+                          {b.name}
+                          {b.events && ` — ${b.events.name}`}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
             </Field>
@@ -305,7 +352,7 @@ export function MeetingFormDialog({
               clash={
                 clash
                   ? {
-                      booth: clash.booth_name ?? "another team",
+                      team: calendarTeam(clash).name,
                       label: `${format(new Date(clash.scheduled_at), "HH:mm")}–${format(
                         meetingEnd(new Date(clash.scheduled_at), clash.duration_minutes),
                         "HH:mm"
@@ -328,7 +375,7 @@ export function MeetingFormDialog({
               value={agenda}
               onChange={(e) => setAgenda(e.target.value)}
             />
-            <FieldDescription>Optional — shared with the booth's other leaders.</FieldDescription>
+            <FieldDescription>Optional — shared with the team's other leaders.</FieldDescription>
           </Field>
         </div>
 
@@ -360,8 +407,8 @@ function RoomStatus({
   ready: boolean
   loading: boolean
   keepBooked: string | null
-  clash: { booth: string; label: string } | null
-  hallToday: { id: string; label: string; booth: string }[]
+  clash: { team: string; label: string } | null
+  hallToday: { id: string; label: string; team: string }[]
   requestRoom: boolean
   onRequestRoomChange: (value: boolean) => void
 }) {
@@ -407,13 +454,13 @@ function RoomStatus({
           <CheckCircle2 className="size-4 shrink-0" />
         )}
         {clash
-          ? `The ${hall} is taken ${clash.label} by ${clash.booth}.`
+          ? `The ${hall} is taken ${clash.label} by ${clash.team}.`
           : `The ${hall} is free then — it will be reserved for this meeting.`}
       </p>
 
       {hallToday.length > 0 && (
         <p className="opacity-80">
-          Hall that day: {hallToday.map((h) => `${h.label} ${h.booth}`).join(" · ")}
+          Hall that day: {hallToday.map((h) => `${h.label} ${h.team}`).join(" · ")}
         </p>
       )}
 
